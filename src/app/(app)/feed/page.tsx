@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/session";
 import { getFeed } from "@/lib/data";
 import { SwipeDeck } from "./swipe-deck";
 import { Avatar } from "@/components/avatar";
+import { EchoField } from "@/components/echo-field";
 
 export const metadata = { title: "Feed" };
 
@@ -27,6 +28,7 @@ export default async function FeedPage() {
         </h1>
 
         <div className="relative mx-auto mt-12 h-72 w-64">
+          <EchoField className="absolute -inset-20 opacity-30" />
           {items.slice(0, 3).map((item, i) => (
             <div
               key={item.id}

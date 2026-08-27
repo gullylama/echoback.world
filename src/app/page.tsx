@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SiteFooter, SiteNav } from "@/components/site-chrome";
 import { EchoPulse, SimilarityBadge, ComponentBars } from "@/components/meters";
+import { EchoField } from "@/components/echo-field";
 import { TrackPlayer } from "@/components/track-player";
 import { Avatar } from "@/components/avatar";
 import { TIER_META } from "@/lib/types";
@@ -11,6 +12,7 @@ export default function Landing() {
       <SiteNav />
       <main>
         <Hero />
+        <TheReturn />
         <Reframe />
         <HowItWorks />
         <Engine />
@@ -28,7 +30,8 @@ export default function Landing() {
 function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <div className="mx-auto grid max-w-6xl gap-14 px-5 pb-20 pt-16 sm:px-8 sm:pt-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:pb-28">
+      <span className="grain" aria-hidden />
+      <div className="mx-auto grid max-w-6xl gap-10 px-5 pb-20 pt-16 sm:px-8 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:pb-28">
         <div className="animate-rise">
           <p className="label text-ink-faint">Echolocation for music</p>
           <h1 className="mt-5 max-w-xl text-[2.6rem] font-semibold leading-[1.04] tracking-tight sm:text-6xl">
@@ -64,44 +67,70 @@ function Hero() {
           </p>
         </div>
 
-        <HeroCard />
+        <div className="relative mx-auto w-full max-w-md animate-rise" style={{ animationDelay: "0.12s" }}>
+          <EchoField
+            className="aspect-square w-full"
+            words={[
+              { text: "I", x: 50, y: 9, size: 2.3 },
+              { text: "sound", x: 41, y: 36, size: 2.5 },
+              { text: "like", x: 26.5, y: 55, fade: 0.5, size: 2.1 },
+              { text: "you.", x: 55, y: 71, fade: 0.34, blur: 1.1, size: 2.1 },
+            ]}
+          />
+        </div>
       </div>
     </section>
   );
 }
 
-/** A live match card — the product's core moment, on the front page. */
-function HeroCard() {
+/* ---------------------------------------------------------- the return */
+
+/** A live match card — the product's core moment, surfacing from the blur. */
+function TheReturn() {
   return (
-    <div className="relative mx-auto w-full max-w-md animate-rise" style={{ animationDelay: "0.15s" }}>
-      <div className="absolute -right-3 -top-3 h-full w-full rounded-2xl border border-hairline bg-paper-raised/70" aria-hidden />
-      <div className="relative rounded-2xl border border-hairline bg-paper-raised p-6 shadow-[0_24px_60px_-36px_rgba(22,21,26,0.35)]">
-        <div className="flex items-center justify-between">
-          <span className="label text-ink-faint">Match returned</span>
-          <SimilarityBadge score={94} />
+    <section className="relative overflow-hidden border-t border-hairline">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-24 sm:px-8 lg:grid-cols-2">
+        <div>
+          <p className="label text-ink-faint">The moment</p>
+          <h2 className="font-serif-display mt-4 text-3xl leading-tight sm:text-[2.6rem]">
+            Somewhere in the blur,
+            <br />
+            a real voice answers.
+          </h2>
+          <p className="mt-6 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">
+            Every match arrives softly out of focus — a shape, a similarity, a
+            preview. Subscribe and it surfaces: a name, a voice, a person you can
+            reach.
+          </p>
         </div>
-        <div className="mt-5 flex items-center gap-4">
-          <Avatar seed={11} size={52} />
-          <div>
-            <p className="text-lg font-semibold tracking-tight">Mara Solene</p>
-            <p className="text-sm text-ink-faint">Artist · Alt-R&amp;B · London</p>
+        <div className="relative mx-auto w-full max-w-md">
+          <EchoField className="absolute -inset-10 opacity-35" />
+          <div className="relative rounded-2xl border border-hairline bg-paper-raised/85 p-6 shadow-[0_24px_60px_-36px_rgba(35,33,69,0.45)] backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <span className="label text-ink-faint">Match returned</span>
+              <SimilarityBadge score={94} />
+            </div>
+            <div className="mt-5 flex items-center gap-4">
+              <Avatar seed={11} size={52} />
+              <div>
+                <p className="text-lg font-semibold tracking-tight">Mara Solene</p>
+                <p className="text-sm text-ink-faint">Artist · Alt-R&amp;B · London</p>
+              </div>
+            </div>
+            <TrackPlayer seed={4021} className="mt-5" />
+            <div className="mt-5 border-t border-hairline pt-4">
+              <ComponentBars vocal={94} style={91} production={0} talentRole="artist" />
+            </div>
+            <div className="mt-5 flex items-center justify-between">
+              <span className="text-xs text-ink-faint">&ldquo;Midnight Arithmetic&rdquo; — demo, 2:52</span>
+              <span className="rounded-full border border-hairline px-3 py-1 text-xs font-medium text-ink-soft">
+                Express interest
+              </span>
+            </div>
           </div>
         </div>
-        <TrackPlayer seed={4021} className="mt-5" />
-        <div className="mt-5 border-t border-hairline pt-4">
-          <ComponentBars vocal={94} style={91} production={0} talentRole="artist" />
-        </div>
-        <div className="mt-5 flex items-center justify-between">
-          <span className="text-xs text-ink-faint">&ldquo;Midnight Arithmetic&rdquo; — demo, 2:52</span>
-          <span className="rounded-full border border-hairline px-3 py-1 text-xs font-medium text-ink-soft">
-            Express interest
-          </span>
-        </div>
       </div>
-      <div className="pointer-events-none absolute -bottom-10 -left-14 opacity-70">
-        <EchoPulse size={110} />
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -109,8 +138,14 @@ function HeroCard() {
 
 function Reframe() {
   return (
-    <section className="border-t border-hairline bg-night text-night-ink">
+    <section className="relative border-t border-hairline bg-night text-night-ink">
+      <span className="grain opacity-[0.07]" aria-hidden />
       <div className="relative mx-auto max-w-6xl overflow-hidden px-5 py-24 sm:px-8 sm:py-32">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-24 top-1/2 h-[28rem] w-[28rem] -translate-y-1/2 rounded-full opacity-25"
+          style={{ background: "radial-gradient(closest-side, #4b4880, transparent 70%)", filter: "blur(30px)" }}
+        />
         <span
           aria-hidden
           className="kanji pointer-events-none absolute -right-6 top-1/2 -translate-y-1/2 select-none text-[16rem] leading-none text-night-raised sm:text-[22rem]"
@@ -119,7 +154,7 @@ function Reframe() {
         </span>
         <div className="relative max-w-2xl">
           <p className="label text-night-soft">The reframe</p>
-          <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
+          <h2 className="font-serif-display mt-5 text-3xl leading-tight sm:text-5xl">
             AI music isn&rsquo;t a replacement.
             <br />
             It&rsquo;s a demo — a sketch of a song looking for a voice.
@@ -346,10 +381,11 @@ function PricingTeaser() {
 
 function ClosingCta() {
   return (
-    <section className="border-t border-hairline bg-night text-night-ink">
-      <div className="mx-auto flex max-w-6xl flex-col items-center px-5 py-24 text-center sm:px-8 sm:py-28">
+    <section className="relative border-t border-hairline bg-night text-night-ink">
+      <span className="grain opacity-[0.07]" aria-hidden />
+      <div className="relative mx-auto flex max-w-6xl flex-col items-center px-5 py-24 text-center sm:px-8 sm:py-28">
         <EchoPulse size={72} />
-        <h2 className="mt-10 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
+        <h2 className="font-serif-display mt-10 max-w-2xl text-3xl leading-tight sm:text-5xl">
           Somewhere, a real voice is waiting for the song you just made.
         </h2>
         <Link

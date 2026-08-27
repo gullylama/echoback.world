@@ -46,7 +46,7 @@ export default async function StartPage({
         {!chosen ? (
           <>
             <p className="label text-ink-faint">Join EchoBack</p>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="font-serif-display mt-4 text-3xl sm:text-[2.6rem]">
               Which side of the echo are you?
             </h1>
             <div className="mt-12 flex flex-col gap-px overflow-hidden rounded-2xl border border-hairline bg-hairline">

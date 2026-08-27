@@ -165,7 +165,7 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
         <div className="fixed inset-0 z-50 grid place-items-center bg-night/60 p-6 backdrop-blur-sm">
           <div className="w-full max-w-sm animate-rise rounded-2xl border border-hairline bg-paper-raised p-8 text-center">
             <span className="grad-audio mx-auto block h-[3px] w-14 rounded-full" />
-            <h3 className="mt-6 text-2xl font-semibold tracking-tight">The echo returned</h3>
+            <h3 className="font-serif-display mt-6 text-3xl">The echo returned</h3>
             <p className="mt-3 text-sm leading-relaxed text-ink-soft">
               The creator of &ldquo;{mutualThread.title}&rdquo; is interested too. A
               thread is open in your inbox.

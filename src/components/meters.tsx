@@ -63,10 +63,10 @@ export function EchoPulse({ size = 120, className = "" }: { size?: number; class
         <span
           key={i}
           className="grad-audio absolute inset-0 animate-pulse-ring rounded-full"
-          style={{ animationDelay: `${i * 1.05}s`, opacity: 0 }}
+          style={{ animationDelay: `${i * 1.05}s`, opacity: 0, filter: "blur(6px)" }}
         />
       ))}
-      <span className="grad-audio absolute inset-[42%] rounded-full" />
+      <span className="grad-audio absolute inset-[42%] rounded-full" style={{ filter: "blur(1.5px)" }} />
     </span>
   );
 }

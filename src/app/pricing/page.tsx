@@ -40,7 +40,7 @@ export default async function PricingPage() {
       <SiteNav />
       <main className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
         <p className="label text-ink-faint">Pricing</p>
-        <h1 className="mt-4 max-w-lg text-3xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="font-serif-display mt-4 max-w-lg text-3xl sm:text-5xl">
           Free to upload.
           <br />
           Pay to reveal the echo.

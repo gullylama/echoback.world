@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <main className="grid min-h-dvh place-items-center px-6">
       <div className="text-center">
-        <LogoMark size={40} id="nf" />
+        <LogoMark size={40} />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">No echo here</h1>
         <p className="mt-2 text-sm text-ink-soft">This page doesn&rsquo;t exist — or it never returned.</p>
         <Link
