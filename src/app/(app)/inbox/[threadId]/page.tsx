@@ -17,7 +17,7 @@ export default async function ThreadPage({
   const user = await currentUser();
   if (!user) redirect("/start");
   const { threadId } = await params;
-  const thread = getThread(user, threadId);
+  const thread = await getThread(user, threadId);
   if (!thread) notFound();
   await markReadAction(threadId);
   const writable = inboxWritable(user);

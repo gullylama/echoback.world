@@ -8,7 +8,7 @@ export const metadata = { title: "Pricing" };
 
 const DETAILS: Record<Tier, string[]> = {
   creator_artists: [
-    "Unlimited demo uploads",
+    "Unlimited track uploads",
     "Full ranked match lists, revealed",
     "Express interest & message artists",
     "Producer matches stay counted, not revealed",
@@ -16,11 +16,11 @@ const DETAILS: Record<Tier, string[]> = {
   creator_full: [
     "Everything in Creator — Artists",
     "Producer matches revealed & contactable",
-    "One demo, two kinds of collaborator",
+    "One track, two kinds of collaborator",
   ],
   artist: [
     "Voice reference uploads",
-    "Swipe feed of demos matched to your voice",
+    "Swipe feed of AI tracks matched to your voice",
     "Inbox on mutual interest",
     "Keep 100% of anything you make",
   ],

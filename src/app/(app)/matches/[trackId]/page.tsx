@@ -21,10 +21,10 @@ export default async function MatchesPage({
   if (user.role !== "creator") redirect("/studio");
 
   const { trackId } = await params;
-  const track = getTrack(user, trackId);
+  const track = await getTrack(user, trackId);
   if (!track) notFound();
 
-  const matches = getMatchesForTrack(user, trackId);
+  const matches = await getMatchesForTrack(user, trackId);
   const artists = matches.filter((m) => m.talent.role === "artist");
   const producers = matches.filter((m) => m.talent.role === "producer");
 
@@ -41,7 +41,9 @@ export default async function MatchesPage({
         <div className="sm:w-72">
           <p className="label text-ink-faint">The echo you sent</p>
           <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight">{track.title}</h1>
-          <p className="mt-1 text-xs text-ink-faint">Demo · {fmtDuration(track.durationSec)}</p>
+          <p className="mt-1 text-xs text-ink-faint">
+            Your track{track.durationSec ? ` · ${fmtDuration(track.durationSec)}` : ""}
+          </p>
         </div>
         <TrackPlayer seed={track.seed} className="flex-1" />
         <div className="text-sm text-ink-soft sm:text-right">
@@ -56,13 +58,24 @@ export default async function MatchesPage({
         </div>
       </header>
 
-      {!subActive && (
+      {track.status !== "fingerprinted" && matches.length === 0 && (
+        <div className="mt-10 flex flex-col items-center rounded-2xl border border-dashed border-hairline py-16 text-center">
+          <span className="grad-audio block h-[3px] w-16 animate-pulse rounded-full" />
+          <h2 className="mt-6 text-lg font-semibold tracking-tight">The engine is listening</h2>
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
+            Your track is being fingerprinted — voice, style and production, each
+            heard separately. Matches appear here the moment the echo returns.
+          </p>
+        </div>
+      )}
+
+      {!subActive && matches.length > 0 && (
         <div className="sticky top-[4.5rem] z-30 mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-hairline bg-night p-5 text-night-ink shadow-lg">
           <p className="text-sm leading-relaxed">
             <strong>
               {artists.length} artists{producers.length ? ` and ${producers.length} producers` : ""}
             </strong>{" "}
-            match this demo. Subscribe to reveal who they are and make contact.
+            match this track. Subscribe to reveal who they are and make contact.
           </p>
           <Link
             href="/pricing"
@@ -73,6 +86,8 @@ export default async function MatchesPage({
         </div>
       )}
 
+      {matches.length > 0 && (
+      <>
       <Section title="Artists" sub="Matched on voice and style — ranked by how strongly they echo.">
         {artists.map((m, i) => (
           <MatchCard key={m.id} match={m} rank={i + 1} />
@@ -98,6 +113,8 @@ export default async function MatchesPage({
           <MatchCard key={m.id} match={m} rank={i + 1} />
         ))}
       </Section>
+      </>
+      )}
     </div>
   );
 }

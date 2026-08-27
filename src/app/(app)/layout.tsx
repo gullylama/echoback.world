@@ -10,8 +10,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await currentUser();
   if (!user) redirect("/start");
 
-  const unread = countUnread(user);
-  const feedCount = user.role === "creator" ? 0 : countFeed(user);
+  const unread = await countUnread(user);
+  const feedCount = user.role === "creator" ? 0 : await countFeed(user);
   const subActive = user.subscription?.status === "active";
 
   const tabs: { href: string; label: string; badge?: number }[] = [

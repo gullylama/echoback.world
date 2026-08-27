@@ -4,11 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://echoback.world"),
   title: {
-    default: "EchoBack — your demo already sounds like someone",
+    default: "EchoBack — your AI music already sounds like someone",
     template: "%s · EchoBack",
   },
   description:
-    "EchoBack matches AI-made demos to the real artists and producers whose sound they echo. AI writes the part; a human gets cast in it.",
+    "EchoBack connects AI-made music with the real artists and producers whose sound it echoes. AI writes the part; a human gets cast in it.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg" },
 };
@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Zen+Kaku+Gothic+New:wght@300&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
           rel="stylesheet"
         />
       </head>

@@ -34,7 +34,6 @@
   --font-sans: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --font-serif: "Newsreader", "Times New Roman", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
-  --font-jp: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
 
   --tracking-label: 0.14em;
 
@@ -167,12 +166,6 @@ body {
   font-family: var(--font-serif);
   font-weight: 400;
   letter-spacing: -0.01em;
-}
-
-/* Kanji watermark accent (響 = echo / resonance) */
-.kanji {
-  font-family: var(--font-jp);
-  font-weight: 300;
 }
 
 button {

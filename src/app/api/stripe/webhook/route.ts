@@ -29,11 +29,17 @@ export async function POST(req: Request) {
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
       const userId = sub.metadata?.userId;
-      const priceId = sub.items.data[0]?.price?.id;
-      const tier = priceId ? tierForPriceId(priceId) : null;
+      const item = sub.items.data[0];
+      const tier = item?.price?.id ? tierForPriceId(item.price.id) : null;
       if (userId && tier) {
         const active = sub.status === "active" || sub.status === "trialing";
-        await upsertSubscription(userId, tier, active ? "active" : "lapsed", sub.id);
+        const periodEnd = item?.current_period_end
+          ? new Date(item.current_period_end * 1000).toISOString()
+          : null;
+        await upsertSubscription(userId, tier, active ? "active" : "lapsed", sub.id, {
+          customerId: typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
+          periodEnd,
+        });
       }
       break;
     }
@@ -48,7 +54,8 @@ async function upsertSubscription(
   userId: string,
   tier: string,
   status: "active" | "lapsed",
-  stripeSubscriptionId: string
+  stripeSubscriptionId: string,
+  extra: { customerId?: string; periodEnd: string | null }
 ) {
   if (!supabaseConfigured) return;
   const { serviceClient } = await import("@/lib/supabase/service");
@@ -60,6 +67,8 @@ async function upsertSubscription(
         tier,
         status,
         stripe_subscription_id: stripeSubscriptionId,
+        stripe_customer_id: extra.customerId ?? null,
+        current_period_end: extra.periodEnd,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }

@@ -32,7 +32,7 @@ export interface Track {
   createdAt: string;
   /** deterministic seed for waveform + synth preview */
   seed: number;
-  status: "processing" | "fingerprinted";
+  status: "processing" | "fingerprinted" | "failed";
   consentConfirmed: boolean;
 }
 
@@ -123,7 +123,7 @@ export const TIER_META: Record<
     name: "Creator — Artists",
     price: "£15.99",
     audience: "creator",
-    blurb: "Reveal and contact every artist your demos match.",
+    blurb: "Reveal and contact every artist your music matches.",
   },
   creator_full: {
     name: "Creator — Artists + Producers",

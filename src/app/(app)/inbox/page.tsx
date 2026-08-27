@@ -11,7 +11,7 @@ export const metadata = { title: "Inbox" };
 export default async function InboxPage() {
   const user = await currentUser();
   if (!user) redirect("/start");
-  const threads = getThreads(user);
+  const threads = await getThreads(user);
 
   return (
     <div className="mx-auto max-w-2xl animate-rise">

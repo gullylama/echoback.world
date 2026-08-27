@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
 export function UploadForm({
@@ -17,15 +17,10 @@ export function UploadForm({
   isCreator: boolean;
 }) {
   const [fileName, setFileName] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <form action={action} className="mt-10 flex flex-col gap-6">
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        className="group flex flex-col items-center rounded-2xl border border-dashed border-hairline bg-paper-raised px-6 py-12 text-center transition hover:border-ink-faint"
-      >
+      <label className="group flex cursor-pointer flex-col items-center rounded-2xl border border-dashed border-hairline bg-paper-raised px-6 py-12 text-center transition hover:border-ink-faint">
         <span className="grad-audio block h-[3px] w-16 rounded-full transition group-hover:w-24" />
         <span className="mt-5 text-sm font-medium">
           {fileName ?? "Drop audio here, or browse"}
@@ -34,14 +29,15 @@ export function UploadForm({
           mp3 · wav · m4a — up to 50MB{demoMode ? " (optional in demo mode)" : ""}
         </span>
         <input
-          ref={fileRef}
           type="file"
           name="file"
           accept=".mp3,.wav,.m4a,audio/*"
-          className="hidden"
+          required={!demoMode}
+          className="sr-only"
+          tabIndex={-1}
           onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
         />
-      </button>
+      </label>
 
       <label className="flex flex-col gap-2">
         <span className="label text-ink-faint">{titleLabel}</span>
@@ -63,8 +59,8 @@ export function UploadForm({
         <label className="flex items-start gap-3 text-sm leading-relaxed text-ink-soft">
           <input type="checkbox" name="consent" required className="mt-1 accent-[var(--color-lilac-deep)]" />
           {isCreator
-            ? "I consent to EchoBack fingerprinting this demo and surfacing short previews of it to matched artists and producers."
-            : "I consent to EchoBack fingerprinting this upload so demos can be matched to my sound. My work is never shared — only used as a reference."}
+            ? "I consent to EchoBack fingerprinting this track and surfacing short previews of it to matched artists and producers."
+            : "I consent to EchoBack fingerprinting this upload so tracks can be matched to my sound. My work is never shared — only used as a reference."}
         </label>
       </fieldset>
 

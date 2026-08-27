@@ -93,7 +93,7 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
                 onPointerCancel={isTop ? onPointerUp : undefined}
               >
                 <div className="flex items-center justify-between">
-                  <span className="label text-ink-faint">Matched demo</span>
+                  <span className="label text-ink-faint">Matched track</span>
                   <span className="font-mono text-2xl font-medium tabular-nums grad-audio-text">
                     {Math.round(item.scores.blended)}
                     <span className="text-sm">%</span>
@@ -101,8 +101,9 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
                 </div>
                 <h2 className="mt-5 text-2xl font-semibold tracking-tight">{item.demo.title}</h2>
                 <p className="mt-1 text-sm text-ink-faint">
-                  by {item.demo.creatorName} · {item.demo.genres.join(", ")} ·{" "}
-                  {fmtDuration(item.demo.durationSec)}
+                  by {item.demo.creatorName}
+                  {item.demo.genres.length > 0 && <> · {item.demo.genres.join(", ")}</>}
+                  {item.demo.durationSec > 0 && <> · {fmtDuration(item.demo.durationSec)}</>}
                 </p>
                 <TrackPlayer seed={item.demo.seed} className="mt-6" height={48} />
                 <div className="mt-6 grid grid-cols-2 gap-3 border-t border-hairline pt-4 text-center">

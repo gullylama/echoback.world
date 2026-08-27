@@ -13,7 +13,7 @@ export default async function FeedPage() {
   if (!user) redirect("/start");
   if (user.role === "creator") redirect("/studio");
 
-  const items = getFeed(user);
+  const items = await getFeed(user);
   const subActive = user.subscription?.status === "active";
   const noun = user.role === "artist" ? "voice" : "sound";
 
@@ -22,7 +22,7 @@ export default async function FeedPage() {
       <div className="mx-auto max-w-md animate-rise text-center">
         <p className="label text-ink-faint">Your feed</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-          <span className="grad-audio-text">{items.length} demos</span>
+          <span className="grad-audio-text">{items.length} tracks</span>
           <br />
           matched to your {noun}
         </h1>
@@ -40,7 +40,7 @@ export default async function FeedPage() {
               }}
             >
               <div className="flex items-center justify-between">
-                <span className="label text-ink-faint">Matched demo</span>
+                <span className="label text-ink-faint">Matched track</span>
                 <span className="font-mono text-lg font-medium grad-audio-text">
                   {Math.round(item.scores.blended)}%
                 </span>
@@ -81,7 +81,8 @@ export default async function FeedPage() {
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
           {items.length > 0 ? (
             <>
-              {items.length} demo{items.length > 1 ? "s" : ""} echo your {noun}
+              {items.length} track{items.length > 1 ? "s" : ""} echo{items.length === 1 ? "es" : ""}{" "}
+              your {noun}
             </>
           ) : (
             "All caught up"
@@ -94,7 +95,7 @@ export default async function FeedPage() {
         <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-dashed border-hairline p-10 text-center">
           <Avatar seed={7} size={44} />
           <p className="mt-5 text-sm leading-relaxed text-ink-soft">
-            Nothing to triage right now. New demos that match your {noun} will appear
+            Nothing to triage right now. New tracks that match your {noun} will appear
             here the moment they&rsquo;re fingerprinted.
           </p>
         </div>

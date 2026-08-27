@@ -1,7 +1,7 @@
 {
   "name": "EchoBack",
   "short_name": "EchoBack",
-  "description": "A demo echoes a real artist's sound; the match echoes back.",
+  "description": "AI music, connected to the real artists and producers it sounds like.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#eef2f1",

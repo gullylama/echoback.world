@@ -35,19 +35,19 @@ function Hero() {
         <div className="animate-rise">
           <p className="label text-ink-faint">Echolocation for music</p>
           <h1 className="mt-5 max-w-xl text-[2.6rem] font-semibold leading-[1.04] tracking-tight sm:text-6xl">
-            Your demo already sounds like someone.
+            Your AI music already sounds like someone.
             <span className="mt-3 block text-ink-faint">Find them.</span>
           </h1>
           <p className="mt-7 max-w-md text-lg leading-relaxed text-ink-soft">
-            EchoBack matches AI-made demos to the real artists and producers whose
-            sound they echo. The AI writes the part — a human gets cast in it.
+            EchoBack connects AI-made music with the real artists and producers whose
+            sound it echoes. The AI writes the part — a human gets cast in it.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <Link
               href="/start?role=creator"
               className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper transition hover:bg-ink-soft"
             >
-              I have a demo
+              I make AI music
             </Link>
             <Link
               href="/start?role=artist"
@@ -122,7 +122,7 @@ function TheReturn() {
               <ComponentBars vocal={94} style={91} production={0} talentRole="artist" />
             </div>
             <div className="mt-5 flex items-center justify-between">
-              <span className="text-xs text-ink-faint">&ldquo;Midnight Arithmetic&rdquo; — demo, 2:52</span>
+              <span className="text-xs text-ink-faint">&ldquo;Midnight Arithmetic&rdquo; — AI track · 2:52</span>
               <span className="rounded-full border border-hairline px-3 py-1 text-xs font-medium text-ink-soft">
                 Express interest
               </span>
@@ -146,28 +146,22 @@ function Reframe() {
           className="pointer-events-none absolute -right-24 top-1/2 h-[28rem] w-[28rem] -translate-y-1/2 rounded-full opacity-25"
           style={{ background: "radial-gradient(closest-side, #4b4880, transparent 70%)", filter: "blur(30px)" }}
         />
-        <span
-          aria-hidden
-          className="kanji pointer-events-none absolute -right-6 top-1/2 -translate-y-1/2 select-none text-[16rem] leading-none text-night-raised sm:text-[22rem]"
-        >
-          響
-        </span>
         <div className="relative max-w-2xl">
           <p className="label text-night-soft">The reframe</p>
           <h2 className="font-serif-display mt-5 text-3xl leading-tight sm:text-5xl">
             AI music isn&rsquo;t a replacement.
             <br />
-            It&rsquo;s a demo — a sketch of a song looking for a voice.
+            It&rsquo;s the beginning of a song — waiting for a real voice.
           </h2>
           <div className="mt-8 grid gap-6 text-[0.95rem] leading-relaxed text-night-soft sm:grid-cols-2">
             <p>
               Charts are banning AI tracks. Listeners are turning on them. But the
-              backlash mistakes the tool for the record. A generated track was never
+              backlash mistakes the tool for the record. An AI-made track was never
               the finished thing — it&rsquo;s a pitch, waiting for the human it was
               unknowingly written for.
             </p>
             <p>
-              EchoBack closes that loop. Fingerprint the demo, find the real artist
+              EchoBack closes that loop. Fingerprint your music, find the real artist
               or producer it sounds like, and make the song for real — with a human
               voice on the master, producer credit on the release, and a legitimate
               path into the existing industry.
@@ -188,7 +182,7 @@ const STEPS = [
   {
     n: "01",
     title: "Send the echo",
-    body: "Upload a demo — AI-made or any sketch. Free, with rights and consent confirmed at upload.",
+    body: "Upload your AI-made track — or any sketch. Free, with rights and consent confirmed at upload.",
   },
   {
     n: "02",
@@ -198,7 +192,7 @@ const STEPS = [
   {
     n: "03",
     title: "The echo returns",
-    body: "A ranked list comes back: real people whose sound your demo already resembles, with per-component similarity.",
+    body: "A ranked list comes back: real people whose sound your music already resembles, with per-component similarity.",
   },
   {
     n: "04",
@@ -235,7 +229,7 @@ const VECTORS = [
   {
     name: "vocal_vector",
     label: "Voice",
-    body: "Timbre, register, delivery. Matches a demo's vocal character to real singers — so a voice finds the song written in its range.",
+    body: "Timbre, register, delivery. Matches a track's vocal character to real singers — so a voice finds the song written in its range.",
     score: 92,
   },
   {
@@ -266,9 +260,9 @@ function Engine() {
             </h2>
             <p className="mt-6 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">
               Every upload is embedded into three separate vectors and searched with
-              nearest-neighbour precision. Separating the components means a demo can
-              match a <em>voice</em> and a <em>producer</em> independently — one song,
-              two different kinds of collaborator.
+              nearest-neighbour precision. Separating the components means one track
+              can match a <em>voice</em> and a <em>producer</em> independently — one
+              song, two different kinds of collaborator.
             </p>
           </div>
           <div className="flex flex-col gap-px overflow-hidden rounded-2xl border border-hairline bg-hairline">
@@ -303,11 +297,11 @@ function ForTalent() {
         <div>
           <p className="label text-ink-faint">For artists &amp; producers</p>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-            The demos come to you.
+            The music comes to you.
           </h2>
           <p className="mt-6 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">
-            Upload your voice or your production reel once. From then on, every demo
-            that echoes your sound lands in your feed, pre-filtered and ranked. Swipe
+            Upload your voice or your production reel once. From then on, every AI
+            track that echoes your sound lands in your feed, pre-filtered and ranked. Swipe
             through them like it&rsquo;s nothing — because for you, it is. Zero search
             effort, curated inbound, and you keep <strong className="text-ink">100%</strong> of
             anything you make from a match.
@@ -328,7 +322,7 @@ function ForTalent() {
               <SimilarityBadge score={91} />
             </div>
             <p className="mt-4 text-xl font-semibold tracking-tight">&ldquo;Glasshouse&rdquo;</p>
-            <p className="text-sm text-ink-faint">Demo · Alt-R&amp;B · 2:52</p>
+            <p className="text-sm text-ink-faint">AI track · Alt-R&amp;B · 2:52</p>
             <TrackPlayer seed={77812} className="mt-5" />
             <div className="mt-6 flex items-center justify-center gap-4">
               <span className="grid size-12 place-items-center rounded-full border border-hairline text-ink-faint">✕</span>

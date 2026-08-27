@@ -32,7 +32,7 @@ export async function SiteNav() {
           ) : (
             <>
               <Link
-                href="/start"
+                href="/start?mode=signin"
                 className="hidden text-sm text-ink-soft transition hover:text-ink sm:block"
               >
                 Sign in
@@ -41,7 +41,7 @@ export async function SiteNav() {
                 href="/start?role=creator"
                 className="rounded-full bg-ink px-5 py-2 text-sm font-medium text-paper transition hover:bg-ink-soft"
               >
-                Upload a demo
+                Upload your music
               </Link>
             </>
           )}
@@ -59,7 +59,7 @@ export function SiteFooter() {
           <div className="max-w-sm">
             <Logo />
             <p className="mt-4 text-sm leading-relaxed text-ink-faint">
-              A demo echoes a real artist&rsquo;s sound; the match echoes back.
+              Your music echoes a real artist&rsquo;s sound; the match echoes back.
             </p>
           </div>
           <nav className="flex gap-10 text-sm text-ink-soft">
@@ -81,9 +81,7 @@ export function SiteFooter() {
           <p className="text-xs text-ink-faint">
             © {new Date().getFullYear()} EchoBack — echoback.world
           </p>
-          <span className="kanji select-none text-2xl text-ink-faint/50" title="hibiki — echo, resonance">
-            響
-          </span>
+          <LogoMark size={22} className="text-ink-faint/60" />
         </div>
       </div>
     </footer>

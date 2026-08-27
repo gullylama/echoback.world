@@ -73,19 +73,21 @@ worker/fingerprint.py    GPU embedding worker (CLAP + Demucs stems)
 
 ## Going to production
 
-1. **Supabase** — create a project, run `supabase/migrations/0001_init.sql`,
-   create a private `audio` storage bucket, set the env vars in
-   `.env.example`. Setting the two `NEXT_PUBLIC_SUPABASE_*` vars switches the
-   app out of demo mode.
-2. **Stripe** — create the four monthly prices, set the price ids + webhook
+1. **Supabase** — create a project, run the SQL files in
+   `supabase/migrations/` in order, create a private `audio` storage bucket,
+   and set the env vars in `.env.example`. Setting the two
+   `NEXT_PUBLIC_SUPABASE_*` vars switches the app out of demo mode: real
+   accounts (email/password + Google), persistent uploads, matches and
+   conversations all run against Supabase via `src/lib/data/supabase.ts`.
+2. **Google sign-in** — in Supabase Auth → Providers, enable Google and add
+   OAuth credentials from Google Cloud Console; set the authorized redirect
+   to your Supabase callback URL. The app handles the rest via
+   `/auth/callback` (first-time Google users pick a role in onboarding).
+3. **Stripe** — create the four monthly prices, set the price ids + webhook
    secret; point the webhook at `/api/stripe/webhook`.
-3. **Fingerprint worker** — run `worker/fingerprint.py` on a GPU host
-   (RunPod), sharing `FINGERPRINT_WORKER_SECRET` with the app.
-4. **Wire the data layer** — `src/lib/data.ts` + `src/lib/session.ts`
-   currently read the demo store; swap their internals to Supabase queries
-   (the schema, RLS, and match SQL are already in place, and view-model types
-   in `src/lib/types.ts` stay unchanged). This is the one deliberate gap
-   between demo and production.
+4. **Fingerprint worker** — run `worker/fingerprint.py` on a GPU host
+   (RunPod), sharing `FINGERPRINT_WORKER_SECRET` with the app. Uploads sit
+   in "the engine is listening" state until the worker posts vectors back.
 5. **Gate on match quality** (launch plan Phase 0): validate the engine on a
    hand-curated seed set before opening sign-ups.
 
