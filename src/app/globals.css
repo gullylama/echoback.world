@@ -10,24 +10,26 @@
 */
 
 @theme {
-  --color-paper: #f6f5f2;
-  --color-paper-raised: #fcfbf9;
-  --color-mist: #eceae5;
-  --color-hairline: #e0ddd6;
-  --color-ink: #16151a;
-  --color-ink-soft: #4c4a52;
-  --color-ink-faint: #8b8892;
+  /* Mineral-water white base — cool, aqueous, glassy. Light on the page
+     behaves like caustics: soft refractions, never flat cream. */
+  --color-paper: #eef2f1;
+  --color-paper-raised: #f7faf9;
+  --color-mist: #e2e8e7;
+  --color-hairline: #d5dedc;
+  --color-ink: #141719;
+  --color-ink-soft: #46504f;
+  --color-ink-faint: #82908e;
   --color-lilac: #ab95e8;
   --color-lilac-deep: #7d63c9;
   --color-rose: #eba0b6;
   --color-rose-deep: #d9718f;
   --color-indigo: #34315c;
   --color-indigo-deep: #232145;
-  --color-night: #131217;
-  --color-night-raised: #1c1b22;
-  --color-night-hairline: #2b2933;
-  --color-night-ink: #f1efec;
-  --color-night-soft: #a4a1ab;
+  --color-night: #0f1619;
+  --color-night-raised: #172124;
+  --color-night-hairline: #253134;
+  --color-night-ink: #edf3f2;
+  --color-night-soft: #9baaa8;
 
   --font-sans: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --font-serif: "Newsreader", "Times New Roman", Georgia, serif;
@@ -84,7 +86,16 @@ html {
 }
 
 body {
-  background: var(--color-paper);
+  background-color: var(--color-paper);
+  /* Caustics: light refracting through still water — soft bright pools
+     and cooler aqua shadows drifting across the ground. */
+  background-image:
+    radial-gradient(52% 38% at 12% 6%, rgba(255, 255, 255, 0.9), transparent 70%),
+    radial-gradient(44% 30% at 80% 14%, rgba(209, 228, 226, 0.65), transparent 72%),
+    radial-gradient(58% 42% at 46% 52%, rgba(255, 255, 255, 0.55), transparent 70%),
+    radial-gradient(40% 32% at 88% 78%, rgba(203, 222, 226, 0.6), transparent 72%),
+    radial-gradient(46% 34% at 8% 88%, rgba(255, 255, 255, 0.5), transparent 70%);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-sans);
   font-feature-settings: "ss01", "cv05";
