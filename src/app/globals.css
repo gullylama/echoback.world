@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+/*
+  EchoBack design system
+  ----------------------
+  Concept: echolocation. Send an echo, feel it return, connect.
+  Base: warm editorial grey/white, near-black ink, hairline rules.
+  The lilac→rose gradient is reserved for one thing only: audio —
+  waveforms, pulses, similarity. Everything else stays quiet (ma 間).
+*/
+
+@theme {
+  --color-paper: #f6f5f2;
+  --color-paper-raised: #fcfbf9;
+  --color-mist: #eceae5;
+  --color-hairline: #e0ddd6;
+  --color-ink: #16151a;
+  --color-ink-soft: #4c4a52;
+  --color-ink-faint: #8b8892;
+  --color-lilac: #ab95e8;
+  --color-lilac-deep: #7d63c9;
+  --color-rose: #eba0b6;
+  --color-rose-deep: #d9718f;
+  --color-night: #131217;
+  --color-night-raised: #1c1b22;
+  --color-night-hairline: #2b2933;
+  --color-night-ink: #f1efec;
+  --color-night-soft: #a4a1ab;
+
+  --font-sans: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --font-jp: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+
+  --tracking-label: 0.14em;
+
+  --animate-pulse-ring: pulse-ring 3.2s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+  --animate-drift: drift 14s ease-in-out infinite alternate;
+  --animate-rise: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.35);
+      opacity: 0.8;
+    }
+    70% {
+      opacity: 0.12;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 0;
+    }
+  }
+
+  @keyframes drift {
+    from {
+      transform: translate3d(-2%, 1%, 0) scale(1);
+    }
+    to {
+      transform: translate3d(2%, -1%, 0) scale(1.04);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv05";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-lilac) 40%, transparent);
+}
+
+/* --- shared utilities ------------------------------------------------- */
+
+/* The audio gradient. Only for sound. */
+.grad-audio {
+  background-image: linear-gradient(
+    120deg,
+    var(--color-lilac-deep),
+    var(--color-lilac) 38%,
+    var(--color-rose) 72%,
+    var(--color-rose-deep)
+  );
+}
+
+.grad-audio-text {
+  background-image: linear-gradient(
+    110deg,
+    var(--color-lilac-deep),
+    var(--color-rose-deep)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Small uppercase editorial label */
+.label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* Hairline rules */
+.rule-t {
+  border-top: 1px solid var(--color-hairline);
+}
+
+/* Redacted (blurred) identity — server never sends the real value */
+.redacted {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Kanji watermark accent (響 = echo / resonance) */
+.kanji {
+  font-family: var(--font-jp);
+  font-weight: 300;
+}
+
+button {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
