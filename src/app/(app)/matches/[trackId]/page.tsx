@@ -81,7 +81,7 @@ export default async function MatchesPage({
             href="/pricing"
             className="grad-audio rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           >
-            Reveal matches — from £15.99/mo
+            Reveal matches — from £16/mo
           </Link>
         </div>
       )}

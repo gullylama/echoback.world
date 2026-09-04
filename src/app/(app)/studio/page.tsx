@@ -187,7 +187,7 @@ async function TalentStudio() {
                 href="/pricing"
                 className="grad-audio mt-6 inline-block rounded-full px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
               >
-                Subscribe to unlock — £15.99/mo
+                Subscribe to unlock — £16/mo
               </Link>
             </>
           )}

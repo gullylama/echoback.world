@@ -3,7 +3,7 @@ import type { Tier } from "@/lib/types";
 
 /*
   Stripe billing — four monthly prices (doc 07):
-    creator_artists £15.99 · creator_full £20 · artist £15.99 · producer £15.99
+    creator_artists £16 · creator_full £20 · artist £16 · producer £16
   Create the prices in the Stripe dashboard and set their ids in env.
 */
 

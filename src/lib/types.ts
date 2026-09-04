@@ -6,10 +6,10 @@ export type TrackKind = "demo" | "voice" | "production";
 
 /** The four monthly subscription tiers (see doc 07). */
 export type Tier =
-  | "creator_artists" // £15.99 — creators reach artists
+  | "creator_artists" // £16 — creators reach artists
   | "creator_full" // £20 — creators reach artists + producers
-  | "artist" // £15.99
-  | "producer"; // £15.99
+  | "artist" // £16
+  | "producer"; // £16
 
 export interface Profile {
   id: string;
@@ -121,7 +121,7 @@ export const TIER_META: Record<
 > = {
   creator_artists: {
     name: "Creator — Artists",
-    price: "£15.99",
+    price: "£16",
     audience: "creator",
     blurb: "Reveal and contact every artist your music matches.",
   },
@@ -133,13 +133,13 @@ export const TIER_META: Record<
   },
   artist: {
     name: "Artist",
-    price: "£15.99",
+    price: "£16",
     audience: "artist",
     blurb: "Unlock the feed of demos matched to your voice.",
   },
   producer: {
     name: "Producer",
-    price: "£15.99",
+    price: "£16",
     audience: "producer",
     blurb: "Unlock the feed of demos matched to your sound.",
   },

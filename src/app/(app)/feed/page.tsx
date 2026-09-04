@@ -68,7 +68,7 @@ export default async function FeedPage() {
           href="/pricing"
           className="grad-audio mt-6 inline-block rounded-full px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90"
         >
-          Unlock the feed — £15.99/mo
+          Unlock the feed — £16/mo
         </Link>
       </div>
     );
