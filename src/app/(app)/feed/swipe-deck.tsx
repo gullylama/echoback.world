@@ -1,14 +1,15 @@
 "use client";
 
 /*
-  The swipe deck — talent triages demos with a low-friction gesture.
-  Drag right = interested, left = pass; buttons do the same. On mutual
-  interest an "echo returned" overlay links straight to the new thread.
+  Swipe mode — the low-friction way to triage a feed.
+  Right sends a collaboration request (the paid act); left dismisses it.
+  A quick swipe sends no note, so the browse view is the better move when
+  you want to say why.
 */
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { interestAction, passAction } from "@/app/actions";
+import { passAction, sendRequestAction } from "@/app/actions";
 import type { FeedItemView } from "@/lib/types";
 import { TrackPlayer } from "@/components/track-player";
 import { fmtDuration } from "@/lib/format";
@@ -19,7 +20,9 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
   const [items, setItems] = useState(initialItems);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const [leaving, setLeaving] = useState<{ id: string; dir: 1 | -1 } | null>(null);
-  const [mutualThread, setMutualThread] = useState<{ title: string } | null>(null);
+  const [sent, setSent] = useState<{ title: string; accepted: boolean; threadId: string | null } | null>(
+    null
+  );
   const start = useRef<{ x: number; y: number } | null>(null);
 
   const top = items[0];
@@ -29,8 +32,14 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
     setLeaving({ id: top.id, dir });
     const item = top;
     if (dir === 1) {
-      void interestAction(item.id).then((res) => {
-        if (res?.mutual) setMutualThread({ title: item.demo.title });
+      void sendRequestAction(item.id).then((res) => {
+        if (res?.ok) {
+          setSent({
+            title: item.demo.title,
+            accepted: res.state === "accepted",
+            threadId: res.threadId ?? null,
+          });
+        }
       });
     } else {
       void passAction(item.id);
@@ -57,7 +66,7 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
     else setDrag(null);
   };
 
-  if (items.length === 0 && !mutualThread) {
+  if (items.length === 0 && !sent) {
     return (
       <p className="mt-14 text-center text-sm text-ink-soft">
         That&rsquo;s everything — beautifully triaged.
@@ -66,7 +75,7 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
   }
 
   return (
-    <div className="relative mx-auto mt-10 max-w-sm">
+    <div className="relative mx-auto mt-8 max-w-sm">
       <div className="relative h-[26rem]">
         {items
           .slice(0, 3)
@@ -108,7 +117,9 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
                 <TrackPlayer seed={item.demo.seed} className="mt-6" height={48} />
                 <div className="mt-6 grid grid-cols-2 gap-3 border-t border-hairline pt-4 text-center">
                   <div>
-                    <p className="label text-ink-faint">{item.scores.vocal ? "Voice" : "Production"}</p>
+                    <p className="label text-ink-faint">
+                      {item.scores.vocal ? "Voice" : "Production"}
+                    </p>
                     <p className="mt-1 font-mono text-sm tabular-nums text-ink-soft">
                       {Math.round(item.scores.vocal || item.scores.production)}
                     </p>
@@ -129,7 +140,7 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
                     }`}
                     style={{ opacity: Math.abs(lean) }}
                   >
-                    {lean > 0 ? "Interested" : "Pass"}
+                    {lean > 0 ? "Request" : "Pass"}
                   </span>
                 )}
               </div>
@@ -149,7 +160,7 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
         </button>
         <button
           onClick={() => commit(1)}
-          aria-label="Interested"
+          aria-label="Send request"
           className="grad-audio grid place-items-center rounded-full text-white shadow-lg transition hover:opacity-90"
           style={{ width: 62, height: 62 }}
         >
@@ -159,27 +170,38 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
         </button>
       </div>
       <p className="mt-4 text-center text-xs text-ink-faint">
-        Drag the card, or use the buttons. Interest is only visible if it&rsquo;s mutual.
+        Drag the card, or use the buttons. Swipe right asks the creator to work with you.
       </p>
 
-      {mutualThread && (
+      {sent && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-night/60 p-6 backdrop-blur-sm">
           <div className="w-full max-w-sm animate-rise rounded-2xl border border-hairline bg-paper-raised p-8 text-center">
             <span className="grad-audio mx-auto block h-[3px] w-14 rounded-full" />
-            <h3 className="font-serif-display mt-6 text-3xl">The echo returned</h3>
+            <h3 className="font-serif-display mt-6 text-3xl">
+              {sent.accepted ? "The echo returned" : "Request sent"}
+            </h3>
             <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-              The creator of &ldquo;{mutualThread.title}&rdquo; is interested too. A
-              thread is open in your inbox.
+              {sent.accepted ? (
+                <>
+                  The creator of &ldquo;{sent.title}&rdquo; said yes. A conversation is
+                  open in your inbox.
+                </>
+              ) : (
+                <>
+                  We&rsquo;ve asked the creator of &ldquo;{sent.title}&rdquo; to work
+                  with you. You&rsquo;ll see their answer in your inbox.
+                </>
+              )}
             </p>
             <div className="mt-7 flex flex-col gap-2">
               <Link
-                href="/inbox"
+                href={sent.threadId ? `/inbox/${sent.threadId}` : "/inbox"}
                 className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-paper transition hover:bg-ink-soft"
               >
                 Open inbox
               </Link>
               <button
-                onClick={() => setMutualThread(null)}
+                onClick={() => setSent(null)}
                 className="px-5 py-2 text-sm text-ink-faint transition hover:text-ink"
               >
                 Keep swiping

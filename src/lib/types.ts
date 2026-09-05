@@ -11,6 +11,8 @@ export type Tier =
   | "artist" // £16
   | "producer"; // £16
 
+export type RequestState = "pending" | "accepted" | "declined";
+
 export interface Profile {
   id: string;
   role: UserRole;
@@ -23,6 +25,15 @@ export interface Profile {
   avatarSeed: number;
 }
 
+/** Fields a member can edit about themselves. */
+export interface ProfileEdit {
+  displayName: string;
+  location: string;
+  bio: string;
+  genres: string[];
+  craft: string;
+}
+
 export interface Track {
   id: string;
   ownerId: string;
@@ -30,7 +41,7 @@ export interface Track {
   title: string;
   durationSec: number;
   createdAt: string;
-  /** deterministic seed for waveform + synth preview */
+  /** deterministic seed for waveform + preview playback */
   seed: number;
   status: "processing" | "fingerprinted" | "failed";
   consentConfirmed: boolean;
@@ -43,19 +54,31 @@ export interface ComponentScores {
   blended: number;
 }
 
+/** The state of the single request allowed on a match, from a viewer's side. */
+export interface RequestSummary {
+  id: string;
+  state: RequestState;
+  /** true when the viewer is the one who sent it */
+  mine: boolean;
+  threadId: string | null;
+}
+
 /**
  * A match as the *server* is willing to describe it to the current viewer.
  * When `revealed` is false the identity fields are already redacted
- * server-side — the client never receives the real values.
+ * server-side — the client never receives the real values. The preview seed
+ * is always sent: hearing the voice is free, reaching it is not.
  */
 export interface MatchView {
   id: string;
   demoTrackId: string;
   scores: ComponentScores;
   revealed: boolean;
+  /** plays the talent's reference audio — available before paying */
+  previewSeed: number;
   talent: {
     role: UserRole;
-    /** redacted to obscured initials when revealed=false */
+    /** redacted to an obscured stand-in when revealed=false */
     displayName: string;
     location: string;
     genres: string[];
@@ -64,16 +87,15 @@ export interface MatchView {
     avatarSeed: number;
     profileId: string | null; // null until revealed
   };
-  /** viewer's interest state */
-  interested: boolean;
-  mutual: boolean;
+  request: RequestSummary | null;
 }
 
-/** A demo as shown in the talent swipe feed. */
+/** A matched track as shown in the talent discovery feed. */
 export interface FeedItemView {
   id: string; // match id
   scores: ComponentScores;
   revealed: boolean;
+  createdAt: string;
   demo: {
     title: string; // redacted when not revealed
     durationSec: number;
@@ -81,10 +103,44 @@ export interface FeedItemView {
     creatorName: string; // redacted when not revealed
     genres: string[];
   };
+  request: RequestSummary | null;
+}
+
+export type FeedSort = "match" | "newest";
+
+export interface FeedQuery {
+  sort?: FeedSort;
+  genre?: string;
+  q?: string;
+}
+
+/** A collaboration request in either direction, for the inbox. */
+export interface RequestView {
+  id: string;
+  matchId: string;
+  /** true when it was sent *to* the viewer */
+  incoming: boolean;
+  state: RequestState;
+  note: string | null;
+  sentAt: string;
+  threadId: string | null;
+  scores: ComponentScores;
+  counterparty: {
+    profileId: string;
+    displayName: string;
+    role: UserRole;
+    avatarSeed: number;
+    craft: string;
+    genres: string[];
+    location: string;
+  };
+  /** the AI track the request is about — always playable by both sides */
+  track: { title: string; seed: number; durationSec: number };
 }
 
 export interface ThreadView {
   id: string;
+  otherPartyId: string;
   otherPartyName: string;
   otherPartyRole: UserRole;
   demoTitle: string;
@@ -99,6 +155,20 @@ export interface MessageView {
   mine: boolean;
   body: string;
   sentAt: string;
+}
+
+/** A member's profile as shown to someone allowed to see it. */
+export interface ProfileView {
+  id: string;
+  role: UserRole;
+  displayName: string;
+  location: string;
+  bio: string;
+  genres: string[];
+  craft: string;
+  avatarSeed: number;
+  previewSeed: number | null;
+  referenceCount: number;
 }
 
 export interface Subscription {
@@ -123,7 +193,7 @@ export const TIER_META: Record<
     name: "Creator — Artists",
     price: "£16",
     audience: "creator",
-    blurb: "Reveal and contact every artist your music matches.",
+    blurb: "Reveal every artist your music matches, and reach out first.",
   },
   creator_full: {
     name: "Creator — Artists + Producers",
@@ -135,13 +205,13 @@ export const TIER_META: Record<
     name: "Artist",
     price: "£16",
     audience: "artist",
-    blurb: "Unlock the feed of demos matched to your voice.",
+    blurb: "Search every track matched to your voice, and reach out first.",
   },
   producer: {
     name: "Producer",
     price: "£16",
     audience: "producer",
-    blurb: "Unlock the feed of demos matched to your sound.",
+    blurb: "Search every track matched to your sound, and reach out first.",
   },
 };
 
@@ -155,3 +225,12 @@ export function tierCoversRole(tier: Tier, role: UserRole): boolean {
 export function tierCoversProducers(tier: Tier): boolean {
   return tier === "creator_full";
 }
+
+export const ALL_GENRES = [
+  "Alt-R&B", "Neo-soul", "Trap-soul", "Afrobeats", "Alté", "Amapiano",
+  "City pop", "Future funk", "Dream pop", "Synth pop", "Indie electronic",
+  "Indie rock", "Post-punk", "Indie folk", "Folk", "Americana",
+  "UK garage", "Soulful house", "House", "Melodic techno", "Ambient",
+  "Chanson", "Downtempo pop", "Latin indie", "Bolero revival",
+  "Nordic folk", "Ambient pop", "Arabic pop", "Baile funk", "Global club",
+] as const;

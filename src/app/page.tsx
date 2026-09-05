@@ -63,7 +63,7 @@ function Hero() {
             </Link>
           </div>
           <p className="mt-6 text-xs text-ink-faint">
-            Free to upload on every side. Pay only to reveal your matches.
+            Free to upload, hear your matches, and answer anyone who reaches out.
           </p>
         </div>
 
@@ -99,8 +99,8 @@ function TheReturn() {
           </h2>
           <p className="mt-6 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">
             Every match arrives softly out of focus — a shape, a similarity, a
-            preview. Subscribe and it surfaces: a name, a voice, a person you can
-            reach.
+            preview you can already hear. Subscribe and it surfaces: a name, a face, a
+            person you can actually ask.
           </p>
         </div>
         <div className="relative mx-auto w-full max-w-md">
@@ -124,7 +124,7 @@ function TheReturn() {
             <div className="mt-5 flex items-center justify-between">
               <span className="text-xs text-ink-faint">&ldquo;Midnight Arithmetic&rdquo; — AI track · 2:52</span>
               <span className="rounded-full border border-hairline px-3 py-1 text-xs font-medium text-ink-soft">
-                Express interest
+                Request
               </span>
             </div>
           </div>
@@ -196,8 +196,8 @@ const STEPS = [
   },
   {
     n: "04",
-    title: "Connect",
-    body: "Subscribe to reveal names and express interest. When it's mutual, an inbox opens — and the song gets made by people.",
+    title: "Ask",
+    body: "Subscribe to see who they are and ask them to work with you. They hear the track and answer for free — nobody is ever unreachable.",
   },
 ];
 
@@ -301,10 +301,11 @@ function ForTalent() {
           </h2>
           <p className="mt-6 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">
             Upload your voice or your production reel once. From then on, every AI
-            track that echoes your sound lands in your feed, pre-filtered and ranked. Swipe
-            through them like it&rsquo;s nothing — because for you, it is. Zero search
-            effort, curated inbound, and you keep <strong className="text-ink">100%</strong> of
-            anything you make from a match.
+            track that echoes your sound lands in your feed, ranked and searchable —
+            and any creator who wants you can reach you <strong className="text-ink">free</strong>,
+            whether you subscribe or not. Subscribe when you&rsquo;d rather go looking
+            than wait. You keep <strong className="text-ink">100%</strong> of anything
+            you make.
           </p>
           <Link
             href="/start?role=artist"
@@ -347,7 +348,7 @@ function PricingTeaser() {
           <div>
             <p className="label text-ink-faint">Pricing</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Free to upload. Pay to reveal.
+              Free to be found. Pay to go looking.
             </h2>
           </div>
           <Link href="/pricing" className="text-sm font-medium text-ink-soft underline underline-offset-4 transition hover:text-ink">

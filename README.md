@@ -3,11 +3,28 @@
 *A demo echoes a real artist's sound; the match echoes back.*
 
 EchoBack is a matching platform — **not** a music generator. Creators upload
-demos (AI-made or otherwise) and get a ranked list of the real artists and
-producers whose sound the demo resembles. Artists and producers seed a
-reference library with their voice and production work, and receive a swipe
-feed of demos matched to *their* sound. An inbox opens only on mutual
-interest. The AI writes the part; a human gets cast in it.
+AI-made tracks and get a ranked list of the real artists and producers whose
+sound the track resembles. Artists and producers seed a reference library with
+their voice and production work, and get a searchable feed of tracks matched to
+*their* sound. The AI writes the part; a human gets cast in it.
+
+## The access model
+
+> **Payment buys the right to make the first move. Answering is always free.**
+
+Nobody can ever be unreachable because they didn't pay, so a paying member
+always reaches a real, reachable human.
+
+| | Free for everyone | What subscribing adds |
+|---|---|---|
+| **Creator** | Unlimited uploads · match counts and ranked list · **hear what every match sounds like** · answer anyone who asks for them | See who the matches are · ask them to work with you |
+| **Artist / Producer** | Reference uploads · count of matched tracks · **read, hear and answer every incoming request** · keep every conversation | Search, filter and play the whole matched feed · ask creators first |
+
+A request carries an optional note; the recipient hears the track and accepts
+or declines for free. Accepting opens the conversation. Only one request may
+exist per pairing, so nobody gets pestered twice, and only subscribers can
+send — money is the spam filter. Conversations stay open even if a
+subscription lapses: you are never silenced mid-collaboration.
 
 ## Run it now (zero config)
 
@@ -56,6 +73,9 @@ Next.js App Router (Vercel, PWA)
   server.
 - **Match caching.** Matches are recomputed when new relevant uploads are
   fingerprinted (`refresh_matches_for_track` SQL function), not per view.
+- **Profiles.** Members edit their location, craft line, genres and bio on
+  `/account`; profiles are visible at `/profile/[id]` to anyone they share a
+  request or conversation with, and to subscribers among their matches.
 
 ## Repository map
 
@@ -63,6 +83,7 @@ Next.js App Router (Vercel, PWA)
 src/app/                 Routes: landing, start, pricing + (app)/ studio,
                          upload, matches/[trackId], feed, inbox, account
 src/app/actions.ts       All mutations (server actions)
+src/lib/data/shared.ts   Gating rules — who may reveal, who may initiate
 src/lib/data.ts          Read layer with server-side redaction/gating
 src/lib/demo/            Demo-mode store + seed content
 src/lib/stripe.ts        Checkout + price/tier mapping

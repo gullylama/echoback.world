@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { Tier, TrackKind, UserRole } from "@/lib/types";
+import type { ProfileEdit, Tier, TrackKind, UserRole } from "@/lib/types";
 import { tierCoversRole } from "@/lib/types";
 import { createDemoUser } from "@/lib/demo/store";
 import {
@@ -113,6 +113,28 @@ export async function signOutAction() {
   redirect("/");
 }
 
+/* ---- profile ----------------------------------------------------------- */
+
+export async function updateProfileAction(formData: FormData) {
+  const user = await currentUser();
+  if (!user) redirect("/start");
+  const edit: ProfileEdit = {
+    displayName: String(formData.get("displayName") ?? "").trim().slice(0, 60) || user.displayName,
+    location: String(formData.get("location") ?? "").trim().slice(0, 80),
+    craft: String(formData.get("craft") ?? "").trim().slice(0, 120),
+    bio: String(formData.get("bio") ?? "").trim().slice(0, 600),
+    genres: formData
+      .getAll("genres")
+      .map((g) => String(g).trim())
+      .filter(Boolean)
+      .slice(0, 6),
+  };
+  await data.updateProfile(user, edit);
+  revalidatePath("/account");
+  revalidatePath("/studio");
+  redirect("/account?saved=1");
+}
+
 /* ---- upload ----------------------------------------------------------- */
 
 export async function uploadTrackAction(formData: FormData) {
@@ -143,16 +165,27 @@ export async function deleteTrackAction(trackId: string) {
   revalidatePath("/studio");
 }
 
-/* ---- matching --------------------------------------------------------- */
+/* ---- requests ---------------------------------------------------------
+   Payment buys the right to make the first move. Answering one — reading it,
+   hearing the track, accepting, and talking afterwards — is always free. */
 
-export async function interestAction(matchId: string) {
+export async function sendRequestAction(matchId: string, note?: string) {
   const user = await currentUser();
   if (!user) redirect("/start");
-  const result = await data.expressInterest(user, matchId);
+  const result = await data.sendRequest(user, matchId, note?.trim().slice(0, 500) || null);
   revalidatePath("/matches/[trackId]", "page");
   revalidatePath("/feed");
   revalidatePath("/inbox");
   return result;
+}
+
+export async function respondRequestAction(requestId: string, accept: boolean) {
+  const user = await currentUser();
+  if (!user) redirect("/start");
+  const threadId = await data.respondToRequest(user, requestId, accept);
+  revalidatePath("/inbox");
+  revalidatePath("/studio");
+  return { threadId };
 }
 
 export async function passAction(matchId: string) {
@@ -167,9 +200,10 @@ export async function passAction(matchId: string) {
 export async function sendMessageAction(threadId: string, formData: FormData) {
   const user = await currentUser();
   if (!user) redirect("/start");
-  if (user.subscription?.status !== "active") return; // lapsed = read-only
   const body = String(formData.get("body") ?? "").trim().slice(0, 2000);
   if (!body) return;
+  // Conversations stay open regardless of subscription — you are never
+  // silenced mid-collaboration for lapsing.
   await data.sendMessage(user, threadId, body);
   revalidatePath(`/inbox/${threadId}`);
 }

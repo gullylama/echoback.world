@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
-import { countFeed, countMatchesForTrack, getThreads, getTracks } from "@/lib/data";
+import {
+  countFeed,
+  countMatchesForTrack,
+  countPendingRequests,
+  getThreads,
+  getTracks,
+} from "@/lib/data";
 import { deleteTrackAction } from "@/app/actions";
 import { TrackPlayer } from "@/components/track-player";
 import { EchoPulse } from "@/components/meters";
@@ -135,8 +141,11 @@ async function CreatorStudio() {
 async function TalentStudio() {
   const user = (await currentUser())!;
   const refs = (await getTracks(user)).filter((t) => t.kind !== "demo");
-  const feedCount = await countFeed(user);
-  const threads = await getThreads(user);
+  const [feedCount, threads, pending] = await Promise.all([
+    countFeed(user),
+    getThreads(user),
+    countPendingRequests(user),
+  ]);
   const subActive = user.subscription?.status === "active";
   const noun = user.role === "artist" ? "voice" : "sound";
 
@@ -155,6 +164,24 @@ async function TalentStudio() {
 
       {user.subscription?.status === "lapsed" && <LapsedBanner />}
 
+      {pending > 0 && (
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-hairline bg-night p-5 text-night-ink">
+          <p className="text-sm leading-relaxed">
+            <strong>
+              {pending} creator{pending > 1 ? "s" : ""}
+            </strong>{" "}
+            {pending > 1 ? "have" : "has"} asked to work with you. Hearing the tracks
+            and answering is free.
+          </p>
+          <Link
+            href="/inbox"
+            className="grad-audio rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            Open inbox
+          </Link>
+        </div>
+      )}
+
       <div className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-hairline bg-paper-raised p-7">
           {subActive ? (
@@ -172,12 +199,12 @@ async function TalentStudio() {
             </>
           ) : (
             <>
-              <p className="label text-ink-faint">Waiting for you</p>
+              <p className="label text-ink-faint">Go looking</p>
               <p className="mt-3 text-lg leading-relaxed">
                 {feedCount > 0 ? (
                   <>
                     <strong>{feedCount} tracks</strong> have been matched to your {noun}.
-                    Subscribe to open the feed, hear them, and reply.
+                    Subscribe to search them, hear them, and reach out first.
                   </>
                 ) : (
                   <>AI-made tracks matched to your {noun} will accumulate here.</>
@@ -187,7 +214,7 @@ async function TalentStudio() {
                 href="/pricing"
                 className="grad-audio mt-6 inline-block rounded-full px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
               >
-                Subscribe to unlock — £16/mo
+                Reach out first — £16/mo
               </Link>
             </>
           )}
@@ -243,8 +270,9 @@ function LapsedBanner() {
   return (
     <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-hairline bg-paper-raised p-5">
       <p className="text-sm leading-relaxed text-ink-soft">
-        Your subscription has lapsed — matches have re-blurred and your inbox is
-        read-only. Your uploads are still live and still matching.
+        Your subscription has lapsed — matches have re-blurred and you can&rsquo;t
+        reach out first. Your uploads still match, your conversations stay open,
+        and anyone can still reach you.
       </p>
       <Link
         href="/pricing"

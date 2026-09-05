@@ -8,29 +8,36 @@ export const metadata = { title: "Pricing" };
 
 const DETAILS: Record<Tier, string[]> = {
   creator_artists: [
-    "Unlimited track uploads",
-    "Full ranked match lists, revealed",
-    "Express interest & message artists",
+    "See who every artist match actually is",
+    "Ask any of them to work with you",
     "Producer matches stay counted, not revealed",
   ],
   creator_full: [
     "Everything in Creator — Artists",
-    "Producer matches revealed & contactable",
+    "Producers revealed and reachable too",
     "One track, two kinds of collaborator",
   ],
   artist: [
-    "Voice reference uploads",
-    "Swipe feed of AI tracks matched to your voice",
-    "Inbox on mutual interest",
+    "Search and hear every track matched to your voice",
+    "Sort by best match or newest, filter by genre",
+    "Ask creators to work with you first",
     "Keep 100% of anything you make",
   ],
   producer: [
-    "Production reel uploads",
-    "Swipe feed matched on sound, not vocals",
-    "Inbox on mutual interest",
+    "Search and hear every track matched to your sound",
+    "Matched on production, independent of vocals",
+    "Ask creators to work with you first",
     "Keep 100% of anything you make",
   ],
 };
+
+const FREE_FOR_EVERYONE = [
+  "Upload as much as you like",
+  "See how many people you matched, and how strongly",
+  "Hear what your matches sound like",
+  "Read, hear and answer anyone who asks to work with you",
+  "Keep every conversation you've started",
+];
 
 export default async function PricingPage() {
   const user = await currentUser();
@@ -45,11 +52,23 @@ export default async function PricingPage() {
           <br />
           Pay to reveal the echo.
         </h1>
-        <p className="mt-6 max-w-md text-[0.95rem] leading-relaxed text-ink-soft">
-          Matches are always computed and always counted. Subscribing reveals who they
-          are and opens the door to contact. Cancel any time — your uploads stay live,
-          matches re-blur, and your inbox becomes read-only until you return.
+        <p className="mt-6 max-w-lg text-[0.95rem] leading-relaxed text-ink-soft">
+          Everyone can upload, hear their matches, and answer anyone who reaches out.
+          Subscribing is what lets you <strong className="text-ink">make the first
+          move</strong> — so a paying member always reaches a real, reachable human.
         </p>
+
+        <section className="mt-10 rounded-2xl border border-hairline bg-paper-raised p-7">
+          <p className="label text-ink-faint">Free, on every side, forever</p>
+          <ul className="mt-5 grid gap-2.5 text-sm leading-relaxed text-ink-soft sm:grid-cols-2">
+            {FREE_FOR_EVERYONE.map((d) => (
+              <li key={d} className="flex gap-2.5">
+                <span className="grad-audio mt-[0.55rem] block h-[3px] w-3 shrink-0 rounded-full" />
+                {d}
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-4">
           {(Object.keys(TIER_META) as Tier[]).map((tier) => {
@@ -102,7 +121,8 @@ export default async function PricingPage() {
 
         <p className="mt-10 max-w-lg text-sm leading-relaxed text-ink-faint">
           EchoBack takes no cut of anything made from a match. What you create together
-          — and whatever it earns — is entirely yours.
+          — and whatever it earns — is entirely yours. Cancel any time: your uploads
+          keep matching, your conversations stay open, and people can still reach you.
         </p>
       </main>
       <SiteFooter />

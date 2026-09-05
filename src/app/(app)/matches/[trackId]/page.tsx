@@ -7,7 +7,7 @@ import { ComponentBars, SimilarityBadge } from "@/components/meters";
 import { Avatar } from "@/components/avatar";
 import { fmtDuration } from "@/lib/format";
 import { tierCoversProducers, type MatchView } from "@/lib/types";
-import { InterestButton } from "./interest-button";
+import { RequestButton } from "@/components/request-button";
 
 export const metadata = { title: "Matches" };
 
@@ -72,48 +72,52 @@ export default async function MatchesPage({
       {!subActive && matches.length > 0 && (
         <div className="sticky top-[4.5rem] z-30 mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-hairline bg-night p-5 text-night-ink shadow-lg">
           <p className="text-sm leading-relaxed">
+            You can hear every one of them.{" "}
             <strong>
               {artists.length} artists{producers.length ? ` and ${producers.length} producers` : ""}
             </strong>{" "}
-            match this track. Subscribe to reveal who they are and make contact.
+            match this track — subscribe to see who they are and reach out.
           </p>
           <Link
             href="/pricing"
             className="grad-audio rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
           >
-            Reveal matches — from £16/mo
+            Reach them — from £16/mo
           </Link>
         </div>
       )}
 
       {matches.length > 0 && (
-      <>
-      <Section title="Artists" sub="Matched on voice and style — ranked by how strongly they echo.">
-        {artists.map((m, i) => (
-          <MatchCard key={m.id} match={m} rank={i + 1} />
-        ))}
-      </Section>
+        <>
+          <Section
+            title="Artists"
+            sub="Matched on voice and style — ranked by how strongly they echo."
+          >
+            {artists.map((m, i) => (
+              <MatchCard key={m.id} match={m} rank={i + 1} />
+            ))}
+          </Section>
 
-      <Section
-        title="Producers"
-        sub={
-          producersUnlocked || !subActive
-            ? "Matched on production and style — the sound, independent of the voice."
-            : "Producers unlock on the Artists + Producers tier (£20/mo)."
-        }
-        action={
-          subActive && !producersUnlocked ? (
-            <Link href="/pricing" className="text-sm font-medium underline underline-offset-4">
-              Upgrade →
-            </Link>
-          ) : null
-        }
-      >
-        {producers.map((m, i) => (
-          <MatchCard key={m.id} match={m} rank={i + 1} />
-        ))}
-      </Section>
-      </>
+          <Section
+            title="Producers"
+            sub={
+              producersUnlocked || !subActive
+                ? "Matched on production and style — the sound, independent of the voice."
+                : "Producers unlock on the Artists + Producers tier (£20/mo)."
+            }
+            action={
+              subActive && !producersUnlocked ? (
+                <Link href="/pricing" className="text-sm font-medium underline underline-offset-4">
+                  Upgrade →
+                </Link>
+              ) : null
+            }
+          >
+            {producers.map((m, i) => (
+              <MatchCard key={m.id} match={m} rank={i + 1} />
+            ))}
+          </Section>
+        </>
       )}
     </div>
   );
@@ -148,22 +152,39 @@ function Section({
 
 function MatchCard({ match, rank }: { match: MatchView; rank: number }) {
   const t = match.talent;
+  const roleLabel = t.role === "artist" ? "Artist" : "Producer";
   return (
     <article className="flex flex-col gap-5 bg-paper-raised p-6 lg:flex-row lg:items-center lg:gap-8">
-      <div className="flex min-w-0 flex-1 items-center gap-4">
-        <span className="w-7 shrink-0 font-mono text-sm text-ink-faint">
+      <div className="flex min-w-0 flex-1 items-start gap-4">
+        <span className="mt-3 w-7 shrink-0 font-mono text-sm text-ink-faint">
           {String(rank).padStart(2, "0")}
         </span>
         <Avatar seed={t.avatarSeed} size={52} blurred={!match.revealed} />
-        <div className="min-w-0">
-          <p className={`truncate text-lg font-semibold tracking-tight ${match.revealed ? "" : "redacted"}`}>
-            {t.displayName}
-          </p>
+        <div className="min-w-0 flex-1">
+          {match.revealed && t.profileId ? (
+            <Link
+              href={`/profile/${t.profileId}`}
+              className="truncate text-lg font-semibold tracking-tight underline-offset-4 hover:underline"
+            >
+              {t.displayName}
+            </Link>
+          ) : (
+            <p className={`truncate text-lg font-semibold tracking-tight ${match.revealed ? "" : "redacted"}`}>
+              {t.displayName}
+            </p>
+          )}
           <p className="mt-0.5 truncate text-sm text-ink-faint">
-            {t.role === "artist" ? "Artist" : "Producer"} · {t.genres.join(", ")}
+            {roleLabel} · {t.genres.join(", ")}
             {t.location ? ` · ${t.location}` : ""}
           </p>
           <p className="mt-1 truncate text-sm text-ink-soft">{t.craft}</p>
+          {/* Hearing them is free. Reaching them is what costs. */}
+          <TrackPlayer
+            seed={match.previewSeed}
+            height={26}
+            barCount={40}
+            className="mt-3 max-w-xs"
+          />
         </div>
       </div>
 
@@ -176,13 +197,13 @@ function MatchCard({ match, rank }: { match: MatchView; rank: number }) {
         />
       </div>
 
-      <div className="flex items-center justify-between gap-6 lg:w-52 lg:justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-4 lg:w-60 lg:justify-end">
         <SimilarityBadge score={match.scores.blended} size="lg" />
-        <InterestButton
+        <RequestButton
           matchId={match.id}
           revealed={match.revealed}
-          interested={match.interested}
-          mutual={match.mutual}
+          request={match.request}
+          counterpartyLabel={match.revealed ? t.displayName : `this ${roleLabel.toLowerCase()}`}
         />
       </div>
     </article>

@@ -1,16 +1,22 @@
 /*
   Supabase implementation of the data layer — real accounts, persistent
-  uploads, matches and conversations. Queries run server-side with the
-  service client; all pay-to-reveal gating and redaction happens in code
+  uploads, matches, requests and conversations. Queries run server-side with
+  the service client; all pay-to-reveal gating and redaction happens in code
   here (clients have no direct read policies on matches/fingerprints).
 */
 
 import { createHash } from "crypto";
 import type {
   FeedItemView,
+  FeedQuery,
   MatchView,
   MessageView,
   Profile,
+  ProfileEdit,
+  ProfileView,
+  RequestState,
+  RequestSummary,
+  RequestView,
   SessionUser,
   Subscription,
   ThreadView,
@@ -22,7 +28,7 @@ import type {
 import { hashString, obscureName } from "@/lib/demo/seed";
 import { serviceClient } from "@/lib/supabase/service";
 import { stripeConfigured } from "@/lib/config";
-import { creatorCanReveal, hasActiveSub, talentView } from "./shared";
+import { canInitiate, creatorCanReveal, hasActiveSub, talentView } from "./shared";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -61,9 +67,20 @@ function mapTrack(row: any): Track {
   };
 }
 
-/* ---- tracks ----------------------------------------------------------- */
-
+const PROFILE_COLS = "id, role, display_name, location, bio, genres, craft";
 const TRACK_COLS = "id, owner_id, kind, title, duration_sec, created_at, status, consent_confirmed";
+const MATCH_COLS = "id, demo_track_id, talent_track_id, vocal_score, style_score, production_score, blended_score, created_at";
+
+function scoresOf(r: any) {
+  return {
+    vocal: r.vocal_score,
+    style: r.style_score,
+    production: r.production_score,
+    blended: r.blended_score,
+  };
+}
+
+/* ---- tracks ----------------------------------------------------------- */
 
 export async function getTracks(user: SessionUser): Promise<Track[]> {
   const { data } = await serviceClient()
@@ -142,61 +159,83 @@ export async function deleteTrack(user: SessionUser, trackId: string): Promise<v
     .maybeSingle();
   if (!data) return;
   if (data.storage_path) await svc.storage.from(AUDIO_BUCKET).remove([data.storage_path]);
-  await svc.from("tracks").delete().eq("id", data.id); // cascades to fingerprints + matches
+  await svc.from("tracks").delete().eq("id", data.id); // cascades to fingerprints, matches, requests
+}
+
+/* ---- requests (shared helpers) ---------------------------------------- */
+
+interface RequestRow {
+  id: string;
+  match_id: string;
+  sender_id: string;
+  recipient_id: string;
+  state: RequestState;
+  note: string | null;
+  created_at: string;
+}
+
+async function requestsByMatch(matchIds: string[]): Promise<Map<string, RequestRow>> {
+  const map = new Map<string, RequestRow>();
+  if (matchIds.length === 0) return map;
+  const { data } = await serviceClient()
+    .from("requests")
+    .select("id, match_id, sender_id, recipient_id, state, note, created_at")
+    .in("match_id", matchIds);
+  for (const r of (data ?? []) as RequestRow[]) map.set(r.match_id, r);
+  return map;
+}
+
+async function threadIdsByMatch(matchIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (matchIds.length === 0) return map;
+  const { data } = await serviceClient()
+    .from("threads")
+    .select("id, match_id")
+    .in("match_id", matchIds);
+  for (const t of data ?? []) map.set(t.match_id, t.id);
+  return map;
+}
+
+function summarise(
+  row: RequestRow | undefined,
+  viewerId: string,
+  threadId: string | null
+): RequestSummary | null {
+  if (!row) return null;
+  return {
+    id: row.id,
+    state: row.state,
+    mine: row.sender_id === viewerId,
+    threadId: row.state === "accepted" ? threadId : null,
+  };
 }
 
 /* ---- creator side ----------------------------------------------------- */
-
-const MATCH_COLS =
-  "id, demo_track_id, vocal_score, style_score, production_score, blended_score";
-
-async function interestSets(matchIds: string[]) {
-  if (matchIds.length === 0) return new Map<string, { profileId: string; state: string }[]>();
-  const { data } = await serviceClient()
-    .from("interests")
-    .select("match_id, profile_id, state")
-    .in("match_id", matchIds);
-  const map = new Map<string, { profileId: string; state: string }[]>();
-  for (const r of data ?? []) {
-    const list = map.get(r.match_id) ?? [];
-    list.push({ profileId: r.profile_id, state: r.state });
-    map.set(r.match_id, list);
-  }
-  return map;
-}
 
 export async function getMatchesForTrack(user: SessionUser, trackId: string): Promise<MatchView[]> {
   const track = await getTrack(user, trackId);
   if (!track) return [];
   const { data } = await serviceClient()
     .from("matches")
-    .select(
-      `${MATCH_COLS}, talent:profiles!matches_talent_profile_id_fkey(id, role, display_name, location, bio, genres, craft)`
-    )
+    .select(`${MATCH_COLS}, talent:profiles!matches_talent_profile_id_fkey(${PROFILE_COLS})`)
     .eq("demo_track_id", trackId)
     .order("blended_score", { ascending: false });
   const rows = data ?? [];
-  const interests = await interestSets(rows.map((r: any) => r.id));
+  const ids = rows.map((r: any) => r.id);
+  const [requests, threads] = await Promise.all([requestsByMatch(ids), threadIdsByMatch(ids)]);
 
   return rows.map((r: any) => {
     const talent = mapProfile(one(r.talent));
     const revealed = creatorCanReveal(user, talent.role as "artist" | "producer");
-    const ints = interests.get(r.id) ?? [];
-    const mine = ints.some((i) => i.profileId === user.id && i.state === "interested");
-    const theirs = ints.some((i) => i.profileId === talent.id && i.state === "interested");
     return {
       id: r.id,
       demoTrackId: r.demo_track_id,
-      scores: {
-        vocal: r.vocal_score,
-        style: r.style_score,
-        production: r.production_score,
-        blended: r.blended_score,
-      },
+      scores: scoresOf(r),
       revealed,
+      // The voice is audible before paying — reaching it is what costs.
+      previewSeed: hashString(r.talent_track_id ?? talent.id),
       talent: talentView(revealed, talent, r.id),
-      interested: mine,
-      mutual: mine && theirs,
+      request: summarise(requests.get(r.id), user.id, threads.get(r.id) ?? null),
     };
   });
 }
@@ -224,103 +263,192 @@ async function feedRows(user: SessionUser) {
   const { data } = await serviceClient()
     .from("matches")
     .select(
-      `${MATCH_COLS}, demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, status, owner:profiles!tracks_owner_id_fkey(display_name, genres))`
+      `${MATCH_COLS}, demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, created_at, status, owner:profiles!tracks_owner_id_fkey(id, display_name, genres))`
     )
     .eq("talent_profile_id", user.id)
     .order("blended_score", { ascending: false });
   const rows = (data ?? []).filter((r: any) => one<any>(r.demo)?.status === "fingerprinted");
-  const interests = await interestSets(rows.map((r: any) => r.id));
-  return rows.filter(
-    (r: any) => !(interests.get(r.id) ?? []).some((i) => i.profileId === user.id)
-  );
+
+  const ids = rows.map((r: any) => r.id);
+  const [requests, { data: passed }] = await Promise.all([
+    requestsByMatch(ids),
+    ids.length
+      ? serviceClient()
+          .from("interests")
+          .select("match_id")
+          .eq("profile_id", user.id)
+          .eq("state", "passed")
+          .in("match_id", ids)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const passedSet = new Set((passed ?? []).map((p: any) => p.match_id));
+  // Untriaged: nothing dismissed, and no request opened on the pairing yet.
+  return rows.filter((r: any) => !passedSet.has(r.id) && !requests.has(r.id));
 }
 
-export async function getFeed(user: SessionUser): Promise<FeedItemView[]> {
-  const rows = await feedRows(user);
+function toFeedItem(user: SessionUser, r: any, revealed: boolean): FeedItemView {
+  const demo = one<any>(r.demo);
+  const owner = one<any>(demo?.owner);
+  return {
+    id: r.id,
+    scores: scoresOf(r),
+    revealed,
+    createdAt: demo?.created_at ?? r.created_at,
+    demo: revealed
+      ? {
+          title: demo?.title ?? "Track",
+          durationSec: demo?.duration_sec ?? 0,
+          seed: hashString(demo?.id ?? r.id),
+          creatorName: owner?.display_name ?? "Creator",
+          genres: owner?.genres ?? [],
+        }
+      : {
+          title: obscureName(r.id + ":t"),
+          durationSec: demo?.duration_sec ?? 0,
+          // decoy waveform only — unrevealed feed items are not playable
+          seed: hashString(r.id + ":shape"),
+          creatorName: obscureName(r.id + ":c"),
+          genres: owner?.genres ?? [],
+        },
+    request: null, // feed only contains pairings with no request yet
+  };
+}
+
+export async function getFeed(user: SessionUser, query: FeedQuery = {}): Promise<FeedItemView[]> {
   const revealed = hasActiveSub(user);
-  return rows.map((r: any) => {
-    const demo = one<any>(r.demo);
-    const owner = one<any>(demo?.owner);
-    return {
-      id: r.id,
-      scores: {
-        vocal: r.vocal_score,
-        style: r.style_score,
-        production: r.production_score,
-        blended: r.blended_score,
-      },
-      revealed,
-      demo: revealed
-        ? {
-            title: demo?.title ?? "Track",
-            durationSec: demo?.duration_sec ?? 0,
-            seed: hashString(demo?.id ?? r.id),
-            creatorName: owner?.display_name ?? "Creator",
-            genres: owner?.genres ?? [],
-          }
-        : {
-            title: obscureName(r.id + ":t"),
-            durationSec: demo?.duration_sec ?? 0,
-            seed: hashString(demo?.id ?? r.id),
-            creatorName: obscureName(r.id + ":c"),
-            genres: owner?.genres ?? [],
-          },
-    };
-  });
+  let items = (await feedRows(user)).map((r) => toFeedItem(user, r, revealed));
+
+  if (query.genre) items = items.filter((i) => i.demo.genres.includes(query.genre!));
+  if (query.q && query.q.trim()) {
+    const needle = query.q.trim().toLowerCase();
+    items = items.filter(
+      (i) =>
+        i.demo.title.toLowerCase().includes(needle) ||
+        i.demo.creatorName.toLowerCase().includes(needle)
+    );
+  }
+  if (query.sort === "newest") items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  else items.sort((a, b) => b.scores.blended - a.scores.blended);
+  return items;
 }
 
 export async function countFeed(user: SessionUser): Promise<number> {
   return (await feedRows(user)).length;
 }
 
-/* ---- interest --------------------------------------------------------- */
+export async function feedGenres(user: SessionUser): Promise<string[]> {
+  const set = new Set<string>();
+  for (const r of await feedRows(user)) {
+    const owner = one<any>(one<any>(r.demo)?.owner);
+    for (const g of owner?.genres ?? []) set.add(g);
+  }
+  return Array.from(set).sort();
+}
 
-export async function expressInterest(
-  user: SessionUser,
-  matchId: string
-): Promise<{ mutual: boolean; threadId?: string }> {
-  const svc = serviceClient();
-  const { data: match } = await svc
+/* ---- requests --------------------------------------------------------- */
+
+async function partiesFor(matchId: string): Promise<{ creatorId: string; talentId: string } | null> {
+  const { data } = await serviceClient()
     .from("matches")
     .select("id, talent_profile_id, demo:tracks!matches_demo_track_id_fkey(owner_id)")
     .eq("id", matchId)
     .maybeSingle();
-  if (!match) return { mutual: false };
+  if (!data) return null;
+  const creatorId = one<any>(data.demo)?.owner_id;
+  if (!creatorId) return null;
+  return { creatorId, talentId: data.talent_profile_id };
+}
 
-  const creatorId = one<any>(match.demo)?.owner_id as string;
-  const talentId = match.talent_profile_id as string;
-  if (user.id !== creatorId && user.id !== talentId) return { mutual: false };
-  const counterpartId = user.id === creatorId ? talentId : creatorId;
+export async function sendRequest(
+  user: SessionUser,
+  matchId: string,
+  note: string | null
+): Promise<{ ok: boolean; state?: string; threadId?: string | null; reason?: string }> {
+  const svc = serviceClient();
+  const parties = await partiesFor(matchId);
+  if (!parties) return { ok: false, reason: "not_found" };
+  if (user.id !== parties.creatorId && user.id !== parties.talentId) {
+    return { ok: false, reason: "not_found" };
+  }
+  const recipientId = user.id === parties.creatorId ? parties.talentId : parties.creatorId;
 
-  await svc
-    .from("interests")
-    .upsert(
-      { match_id: matchId, profile_id: user.id, state: "interested" },
-      { onConflict: "match_id,profile_id" }
-    );
-
-  const { data: theirs } = await svc
-    .from("interests")
-    .select("state")
-    .eq("match_id", matchId)
-    .eq("profile_id", counterpartId)
-    .eq("state", "interested")
+  const { data: counterparty } = await svc
+    .from("profiles")
+    .select("id, role")
+    .eq("id", recipientId)
     .maybeSingle();
-  if (!theirs) return { mutual: false };
+  if (!counterparty) return { ok: false, reason: "not_found" };
+  if (!canInitiate(user, counterparty.role as UserRole)) return { ok: false, reason: "subscription" };
 
+  // One request per pairing — a match can never be pestered twice.
   const { data: existing } = await svc
-    .from("threads")
-    .select("id")
+    .from("requests")
+    .select("id, state")
     .eq("match_id", matchId)
     .maybeSingle();
-  if (existing) return { mutual: true, threadId: existing.id };
+  if (existing) {
+    const threads = await threadIdsByMatch([matchId]);
+    return { ok: true, state: existing.state, threadId: threads.get(matchId) ?? null };
+  }
 
-  const { data: thread } = await svc
+  const { error } = await svc.from("requests").insert({
+    match_id: matchId,
+    sender_id: user.id,
+    recipient_id: recipientId,
+    state: "pending",
+    note,
+  });
+  if (error) return { ok: false, reason: "not_found" };
+  return { ok: true, state: "pending", threadId: null };
+}
+
+export async function respondToRequest(
+  user: SessionUser,
+  requestId: string,
+  accept: boolean
+): Promise<string | null> {
+  const svc = serviceClient();
+  const { data: request } = await svc
+    .from("requests")
+    .select("id, match_id, sender_id, recipient_id, state")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (!request || request.recipient_id !== user.id || request.state !== "pending") return null;
+
+  if (!accept) {
+    await svc
+      .from("requests")
+      .update({ state: "declined", responded_at: new Date().toISOString() })
+      .eq("id", requestId);
+    return null;
+  }
+
+  const parties = await partiesFor(request.match_id);
+  if (!parties) return null;
+
+  const { data: existingThread } = await svc
     .from("threads")
-    .insert({ match_id: matchId, creator_id: creatorId, talent_id: talentId })
     .select("id")
-    .single();
-  return { mutual: true, threadId: thread?.id };
+    .eq("match_id", request.match_id)
+    .maybeSingle();
+  let threadId = existingThread?.id ?? null;
+  if (!threadId) {
+    const { data: thread } = await svc
+      .from("threads")
+      .insert({
+        match_id: request.match_id,
+        creator_id: parties.creatorId,
+        talent_id: parties.talentId,
+      })
+      .select("id")
+      .single();
+    threadId = thread?.id ?? null;
+  }
+  await svc
+    .from("requests")
+    .update({ state: "accepted", responded_at: new Date().toISOString() })
+    .eq("id", requestId);
+  return threadId;
 }
 
 export async function passMatch(user: SessionUser, matchId: string): Promise<void> {
@@ -330,6 +458,67 @@ export async function passMatch(user: SessionUser, matchId: string): Promise<voi
       { match_id: matchId, profile_id: user.id, state: "passed" },
       { onConflict: "match_id,profile_id" }
     );
+}
+
+export async function getRequests(user: SessionUser): Promise<RequestView[]> {
+  const { data } = await serviceClient()
+    .from("requests")
+    .select(
+      `id, match_id, sender_id, recipient_id, state, note, created_at,
+       sender:profiles!requests_sender_id_fkey(${PROFILE_COLS}),
+       recipient:profiles!requests_recipient_id_fkey(${PROFILE_COLS}),
+       match:matches!requests_match_id_fkey(vocal_score, style_score, production_score, blended_score,
+         demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec))`
+    )
+    .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+    .order("created_at", { ascending: false });
+
+  const rows = data ?? [];
+  const threads = await threadIdsByMatch(rows.map((r: any) => r.match_id));
+
+  return rows
+    .map((r: any): RequestView | null => {
+      const incoming = r.recipient_id === user.id;
+      const other = mapProfile(one(incoming ? r.sender : r.recipient));
+      const match = one<any>(r.match);
+      const demo = one<any>(match?.demo);
+      if (!other || !match || !demo) return null;
+      return {
+        id: r.id,
+        matchId: r.match_id,
+        incoming,
+        state: r.state,
+        note: r.note,
+        sentAt: r.created_at,
+        threadId: r.state === "accepted" ? (threads.get(r.match_id) ?? null) : null,
+        scores: scoresOf(match),
+        counterparty: {
+          profileId: other.id,
+          displayName: other.displayName,
+          role: other.role,
+          avatarSeed: other.avatarSeed,
+          craft: other.craft,
+          genres: other.genres,
+          location: other.location,
+        },
+        // Always playable: you cannot judge a request you cannot hear.
+        track: {
+          title: demo.title,
+          seed: hashString(demo.id),
+          durationSec: demo.duration_sec ?? 0,
+        },
+      };
+    })
+    .filter((r): r is RequestView => r !== null);
+}
+
+export async function countPendingRequests(user: SessionUser): Promise<number> {
+  const { count } = await serviceClient()
+    .from("requests")
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_id", user.id)
+    .eq("state", "pending");
+  return count ?? 0;
 }
 
 /* ---- inbox ------------------------------------------------------------ */
@@ -374,6 +563,7 @@ export async function getThreads(user: SessionUser): Promise<ThreadView[]> {
     const readAt = readByThread.get(r.id);
     return {
       id: r.id,
+      otherPartyId: other?.id ?? "",
       otherPartyName: other?.display_name ?? "Member",
       otherPartyRole: (other?.role ?? "artist") as ThreadView["otherPartyRole"],
       demoTitle: one<any>(one<any>(r.match)?.demo)?.title ?? "Track",
@@ -431,6 +621,122 @@ export async function markThreadRead(user: SessionUser, threadId: string): Promi
       { thread_id: threadId, profile_id: user.id, read_at: new Date().toISOString() },
       { onConflict: "thread_id,profile_id" }
     );
+}
+
+/* ---- profiles ---------------------------------------------------------- */
+
+export async function updateProfile(user: SessionUser, edit: ProfileEdit): Promise<void> {
+  await serviceClient()
+    .from("profiles")
+    .update({
+      display_name: edit.displayName,
+      location: edit.location,
+      bio: edit.bio,
+      genres: edit.genres,
+      craft: edit.craft,
+    })
+    .eq("id", user.id);
+}
+
+async function buildProfileView(profileId: string): Promise<ProfileView | null> {
+  const svc = serviceClient();
+  const { data } = await svc
+    .from("profiles")
+    .select(PROFILE_COLS)
+    .eq("id", profileId)
+    .maybeSingle();
+  if (!data) return null;
+  const profile = mapProfile(data);
+
+  const { data: refs } = await svc
+    .from("tracks")
+    .select("id, kind")
+    .eq("owner_id", profileId)
+    .in("kind", ["voice", "production"])
+    .order("created_at", { ascending: false });
+  const first = (refs ?? [])[0];
+
+  return {
+    id: profile.id,
+    role: profile.role,
+    displayName: profile.displayName,
+    location: profile.location,
+    bio: profile.bio,
+    genres: profile.genres,
+    craft: profile.craft,
+    avatarSeed: profile.avatarSeed,
+    previewSeed: first ? hashString(first.id) : null,
+    referenceCount: (refs ?? []).length,
+  };
+}
+
+export async function getOwnProfile(user: SessionUser): Promise<ProfileView | null> {
+  return buildProfileView(user.id);
+}
+
+/**
+ * A profile is visible to you if it's your own, if you're in a conversation
+ * or a request with them, or if you're subscribed and they're one of your
+ * matches.
+ */
+export async function getProfile(
+  user: SessionUser,
+  profileId: string
+): Promise<ProfileView | null> {
+  if (profileId === user.id) return buildProfileView(profileId);
+  const svc = serviceClient();
+
+  const { data: thread } = await svc
+    .from("threads")
+    .select("id")
+    .or(
+      `and(creator_id.eq.${user.id},talent_id.eq.${profileId}),and(creator_id.eq.${profileId},talent_id.eq.${user.id})`
+    )
+    .maybeSingle();
+  if (thread) return buildProfileView(profileId);
+
+  const { data: request } = await svc
+    .from("requests")
+    .select("id")
+    .or(
+      `and(sender_id.eq.${user.id},recipient_id.eq.${profileId}),and(sender_id.eq.${profileId},recipient_id.eq.${user.id})`
+    )
+    .maybeSingle();
+  if (request) return buildProfileView(profileId);
+
+  const { data: target } = await svc
+    .from("profiles")
+    .select("id, role")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (!target) return null;
+
+  if (user.role === "creator") {
+    if (target.role === "creator") return null;
+    if (!creatorCanReveal(user, target.role as "artist" | "producer")) return null;
+    const { data: mine } = await svc.from("tracks").select("id").eq("owner_id", user.id);
+    const ids = (mine ?? []).map((t: any) => t.id);
+    if (ids.length === 0) return null;
+    const { data: match } = await svc
+      .from("matches")
+      .select("id")
+      .eq("talent_profile_id", profileId)
+      .in("demo_track_id", ids)
+      .maybeSingle();
+    return match ? buildProfileView(profileId) : null;
+  }
+
+  if (!hasActiveSub(user)) return null;
+  const { data: theirs } = await svc.from("tracks").select("id").eq("owner_id", profileId);
+  const ids = (theirs ?? []).map((t: any) => t.id);
+  if (ids.length === 0) return null;
+  const { data: match } = await svc
+    .from("matches")
+    .select("id")
+    .eq("talent_profile_id", user.id)
+    .in("demo_track_id", ids)
+    .maybeSingle();
+  return match ? buildProfileView(profileId) : null;
 }
 
 /* ---- billing ---------------------------------------------------------- */

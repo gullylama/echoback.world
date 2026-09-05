@@ -2,15 +2,19 @@
   Demo-mode data store.
 
   When Supabase env vars are absent the whole product runs against this
-  in-memory store so the full loop — upload → fingerprint → blurred matches →
-  subscribe → reveal → mutual interest → inbox — can be experienced with zero
-  configuration. State lives on globalThis so it survives dev-server HMR.
-  It resets on server restart; that is fine for a demo.
+  in-memory store so the full loop can be experienced with zero configuration:
+  upload → fingerprint → blurred matches (voice audible) → subscribe →
+  reveal → send a request → the other side accepts → conversation.
+
+  State lives on globalThis so it survives dev-server HMR. It resets on
+  server restart; that is fine for a demo.
 */
 
 import type {
   ComponentScores,
   Profile,
+  ProfileEdit,
+  RequestState,
   Subscription,
   Tier,
   Track,
@@ -38,11 +42,20 @@ export interface DemoMatch {
   demoTrackId: string;
   talentProfileId: string;
   scores: ComponentScores;
-  /** userIds who expressed interest */
-  interestedBy: Set<string>;
-  /** userIds who passed */
+  createdAt: string;
+  /** profileIds who dismissed this from their feed */
   passedBy: Set<string>;
-  mutual: boolean;
+}
+
+export interface DemoRequest {
+  id: string;
+  matchId: string;
+  senderId: string;
+  recipientId: string;
+  state: RequestState;
+  note: string | null;
+  createdAt: string;
+  threadId: string | null;
 }
 
 export interface DemoThread {
@@ -58,6 +71,7 @@ interface DemoDB {
   profiles: Map<string, Profile>;
   tracks: Map<string, Track>;
   matches: Map<string, DemoMatch>;
+  requests: Map<string, DemoRequest>;
   threads: Map<string, DemoThread>;
   counter: number;
 }
@@ -73,6 +87,7 @@ function initDB(): DemoDB {
     profiles: new Map(),
     tracks: new Map(),
     matches: new Map(),
+    requests: new Map(),
     threads: new Map(),
     counter: 1,
   };
@@ -93,6 +108,11 @@ export function nextId(prefix: string): string {
 
 function iso(minsAgo = 0): string {
   return new Date(Date.now() - minsAgo * 60_000).toISOString();
+}
+
+/** Deterministic preview seed for a member's reference audio. */
+export function previewSeedFor(profileId: string): number {
+  return hashString(profileId + ":ref");
 }
 
 /* ---- scoring ---------------------------------------------------------- */
@@ -131,20 +151,36 @@ export function createDemoUser(role: UserRole, displayName: string): DemoUser {
     id,
     role,
     displayName,
-    location: "Somewhere on Earth",
+    location: "",
     genres: [],
     craft: "",
     bio: "",
     avatarSeed: hashString(id) % 97,
   });
 
-  if (role === "artist" || role === "producer") {
-    seedTalentSide(user);
-  }
+  if (role === "artist" || role === "producer") seedTalentSide(user);
   return user;
 }
 
-/** Give a fresh demo artist/producer a reference upload + an incoming feed. */
+export function updateDemoProfile(userId: string, edit: ProfileEdit) {
+  const d = db();
+  const profile = d.profiles.get(userId);
+  if (!profile) return;
+  profile.displayName = edit.displayName;
+  profile.location = edit.location;
+  profile.bio = edit.bio;
+  profile.genres = edit.genres;
+  profile.craft = edit.craft;
+  const user = d.users.get(userId);
+  if (user) user.displayName = edit.displayName;
+}
+
+const CREATOR_REQUEST_NOTES = [
+  "I wrote this hoping a voice exactly like yours existed. Would you cut it?",
+  "Your reference reel is the exact world this track belongs in — want to build it out together?",
+];
+
+/** Give a fresh demo artist/producer a reference upload, a feed, and inbound. */
 function seedTalentSide(user: DemoUser) {
   const d = db();
   const refTrack: Track = {
@@ -154,13 +190,13 @@ function seedTalentSide(user: DemoUser) {
     title: user.role === "artist" ? "Voice reference — 3 songs" : "Production reel — 4 cuts",
     durationSec: 412,
     createdAt: iso(60 * 24 * 3),
-    seed: hashString(user.id + ":ref"),
+    seed: previewSeedFor(user.id),
     status: "fingerprinted",
     consentConfirmed: true,
   };
   d.tracks.set(refTrack.id, refTrack);
 
-  // Incoming demos matched to this talent.
+  const created: DemoMatch[] = [];
   FEED_DEMO_TITLES.forEach((f, i) => {
     const track: Track = {
       id: nextId("t"),
@@ -186,22 +222,45 @@ function seedTalentSide(user: DemoUser) {
       scores.style = Math.min(99, Math.round((scores.style + s * 0.6) * 10) / 10);
     }
     const id = nextId("m");
-    d.matches.set(id, {
+    const match: DemoMatch = {
       id,
       demoTrackId: track.id,
       talentProfileId: user.id,
       scores,
-      interestedBy: new Set(),
+      createdAt: track.createdAt,
       passedBy: new Set(),
-      mutual: false,
-    });
+    };
+    d.matches.set(id, match);
+    created.push(match);
   });
+
+  // Two creators have already reached out — inbound is free to answer, so a
+  // brand-new artist sees the model working before paying anything.
+  created
+    .slice()
+    .sort((a, b) => b.scores.blended - a.scores.blended)
+    .slice(0, 2)
+    .forEach((match, i) => {
+      const senderId = d.tracks.get(match.demoTrackId)!.ownerId;
+      const id = nextId("rq");
+      d.requests.set(id, {
+        id,
+        matchId: match.id,
+        senderId,
+        recipientId: user.id,
+        state: "pending",
+        note: CREATOR_REQUEST_NOTES[i % CREATOR_REQUEST_NOTES.length],
+        createdAt: iso(60 * (i * 7 + 2)),
+        threadId: null,
+      });
+    });
 }
 
 /* ---- tracks + matching ------------------------------------------------ */
 
 export function createDemoTrack(user: DemoUser, title: string, kind: Track["kind"]): Track {
   const d = db();
+  const isRef = kind !== "demo";
   const track: Track = {
     id: nextId("t"),
     ownerId: user.id,
@@ -209,7 +268,7 @@ export function createDemoTrack(user: DemoUser, title: string, kind: Track["kind
     title,
     durationSec: 120 + (hashString(title) % 140),
     createdAt: iso(0),
-    seed: hashString(user.id + ":" + title + ":" + d.counter),
+    seed: isRef ? previewSeedFor(user.id) : hashString(user.id + ":" + title + ":" + d.counter),
     status: "fingerprinted",
     consentConfirmed: true,
   };
@@ -226,9 +285,8 @@ export function createDemoTrack(user: DemoUser, title: string, kind: Track["kind
         demoTrackId: track.id,
         talentProfileId: talent.id,
         scores,
-        interestedBy: new Set(),
+        createdAt: track.createdAt,
         passedBy: new Set(),
-        mutual: false,
       });
     }
   }
@@ -253,64 +311,135 @@ export function matchesForTalent(talentId: string): DemoMatch[] {
     .sort((a, b) => b.scores.blended - a.scores.blended);
 }
 
-/* ---- interest + threads ----------------------------------------------- */
+export function requestForMatch(matchId: string): DemoRequest | null {
+  for (const r of db().requests.values()) if (r.matchId === matchId) return r;
+  return null;
+}
 
-const TALENT_OPENERS = [
+export function requestsFor(profileId: string): DemoRequest[] {
+  return Array.from(db().requests.values())
+    .filter((r) => r.senderId === profileId || r.recipientId === profileId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** The two parties on a match: the creator who uploaded, and the talent. */
+export function partiesFor(matchId: string): { creatorId: string; talentId: string } | null {
+  const d = db();
+  const match = d.matches.get(matchId);
+  if (!match) return null;
+  const track = d.tracks.get(match.demoTrackId);
+  if (!track) return null;
+  return { creatorId: track.ownerId, talentId: match.talentProfileId };
+}
+
+/* ---- requests + threads ------------------------------------------------ */
+
+const TALENT_ACCEPT_OPENERS = [
   "Just played this three times back to back. The hook sits exactly where my voice lives — let's talk.",
   "This is uncanny — it's basically written in my register. What's the story behind it?",
   "I'd cut this tomorrow. Do you have stems, or is it topline-only for now?",
 ];
 
-const CREATOR_OPENERS = [
+const CREATOR_ACCEPT_OPENERS = [
   "You heard it! I wrote this hoping someone with exactly your sound existed. Want the full track?",
-  "Amazing — your reference reel is precisely the world this demo belongs in. Happy to send everything over.",
+  "Amazing — your reference reel is precisely the world this belongs in. Happy to send everything over.",
 ];
 
 /**
- * Express interest. In demo mode, strongly-matched seeded counterparties
- * reciprocate immediately so the mutual-interest loop can be experienced.
+ * Send a collaboration request. Only one request may exist per match, so a
+ * pairing can never be pestered twice. In demo mode a strongly-matched seeded
+ * counterparty accepts straight away, so the loop can be felt end to end.
  */
-export function expressInterest(user: DemoUser, matchId: string): { mutual: boolean; threadId?: string } {
+export function sendRequest(
+  senderId: string,
+  matchId: string,
+  note: string | null
+): { requestId: string; state: RequestState; threadId: string | null } | null {
   const d = db();
+  const parties = partiesFor(matchId);
   const match = d.matches.get(matchId);
-  if (!match) return { mutual: false };
-  match.interestedBy.add(user.id);
-  match.passedBy.delete(user.id);
+  if (!parties || !match) return null;
+  if (senderId !== parties.creatorId && senderId !== parties.talentId) return null;
 
-  const iAmTalent = match.talentProfileId === user.id;
-  const counterpartyId = iAmTalent ? d.tracks.get(match.demoTrackId)!.ownerId : match.talentProfileId;
-  const counterpartyIsSeeded = !d.users.has(counterpartyId);
-
-  if (counterpartyIsSeeded && match.scores.blended >= 84) {
-    match.interestedBy.add(counterpartyId);
+  const existing = requestForMatch(matchId);
+  if (existing) {
+    return { requestId: existing.id, state: existing.state, threadId: existing.threadId };
   }
 
-  const bothIn =
-    match.interestedBy.has(user.id) && match.interestedBy.has(counterpartyId);
-  if (bothIn && !match.mutual) {
-    match.mutual = true;
-    const threadId = nextId("th");
-    const openers = iAmTalent ? CREATOR_OPENERS : TALENT_OPENERS;
-    const opener = openers[hashString(matchId) % openers.length];
-    d.threads.set(threadId, {
-      id: threadId,
-      matchId,
-      participantIds: [user.id, counterpartyId],
-      messages: counterpartyIsSeeded
-        ? [{ id: nextId("msg"), senderId: counterpartyId, body: opener, sentAt: iso(0) }]
-        : [],
-      readAt: { [user.id]: iso(0) },
-    });
-    return { mutual: true, threadId };
+  const recipientId = senderId === parties.creatorId ? parties.talentId : parties.creatorId;
+  const id = nextId("rq");
+  const request: DemoRequest = {
+    id,
+    matchId,
+    senderId,
+    recipientId,
+    state: "pending",
+    note,
+    createdAt: iso(0),
+    threadId: null,
+  };
+  d.requests.set(id, request);
+
+  // Seeded (non-signed-up) counterparties answer strong matches immediately.
+  const recipientIsSeeded = !d.users.has(recipientId);
+  if (recipientIsSeeded && match.scores.blended >= 84) {
+    acceptRequest(recipientId, id);
   }
-  return { mutual: match.mutual };
+  return { requestId: id, state: request.state, threadId: request.threadId };
 }
 
-export function passMatch(user: DemoUser, matchId: string) {
+export function acceptRequest(recipientId: string, requestId: string): string | null {
+  const d = db();
+  const request = d.requests.get(requestId);
+  if (!request || request.recipientId !== recipientId || request.state !== "pending") return null;
+
+  const threadId = nextId("th");
+  const senderIsSeeded = !d.users.has(request.senderId);
+  const recipientIsSeeded = !d.users.has(recipientId);
+  const parties = partiesFor(request.matchId);
+  const recipientIsTalent = parties ? recipientId === parties.talentId : true;
+
+  // Whichever side is a seeded stand-in opens with a line, so the thread lives.
+  let opener: { id: string; senderId: string; body: string; sentAt: string } | null = null;
+  if (recipientIsSeeded) {
+    const pool = recipientIsTalent ? TALENT_ACCEPT_OPENERS : CREATOR_ACCEPT_OPENERS;
+    opener = {
+      id: nextId("msg"),
+      senderId: recipientId,
+      body: pool[hashString(requestId) % pool.length],
+      sentAt: iso(0),
+    };
+  } else if (senderIsSeeded) {
+    const pool = recipientIsTalent ? CREATOR_ACCEPT_OPENERS : TALENT_ACCEPT_OPENERS;
+    opener = {
+      id: nextId("msg"),
+      senderId: request.senderId,
+      body: pool[hashString(requestId) % pool.length],
+      sentAt: iso(0),
+    };
+  }
+
+  d.threads.set(threadId, {
+    id: threadId,
+    matchId: request.matchId,
+    participantIds: [request.senderId, recipientId],
+    messages: opener ? [opener] : [],
+    readAt: {},
+  });
+  request.state = "accepted";
+  request.threadId = threadId;
+  return threadId;
+}
+
+export function declineRequest(recipientId: string, requestId: string) {
+  const request = db().requests.get(requestId);
+  if (!request || request.recipientId !== recipientId || request.state !== "pending") return;
+  request.state = "declined";
+}
+
+export function passMatch(profileId: string, matchId: string) {
   const match = db().matches.get(matchId);
-  if (!match) return;
-  match.passedBy.add(user.id);
-  match.interestedBy.delete(user.id);
+  if (match) match.passedBy.add(profileId);
 }
 
 export function threadsFor(userId: string): DemoThread[] {
@@ -323,36 +452,36 @@ export function threadsFor(userId: string): DemoThread[] {
     });
 }
 
-const TALENT_REPLIES = [
+const SEEDED_REPLIES = [
   "Perfect — send the full track and any stems you have. I'll block out studio time this week.",
   "Listening now. This could really be something. Let's take it to the studio.",
   "Got it. I'll live with it for a day or two and come back with thoughts on the arrangement.",
 ];
 
-export function sendMessage(user: DemoUser, threadId: string, body: string) {
+export function sendMessage(userId: string, threadId: string, body: string) {
   const d = db();
   const thread = d.threads.get(threadId);
-  if (!thread || !thread.participantIds.includes(user.id)) return;
-  thread.messages.push({ id: nextId("msg"), senderId: user.id, body, sentAt: iso(0) });
-  thread.readAt[user.id] = iso(0);
+  if (!thread || !thread.participantIds.includes(userId)) return;
+  thread.messages.push({ id: nextId("msg"), senderId: userId, body, sentAt: iso(0) });
+  thread.readAt[userId] = iso(0);
   // Seeded counterparties reply once, so the inbox feels alive.
-  const other = thread.participantIds.find((p) => p !== user.id)!;
+  const other = thread.participantIds.find((p) => p !== userId)!;
   if (!d.users.has(other)) {
-    const mineCount = thread.messages.filter((m) => m.senderId === user.id).length;
+    const mineCount = thread.messages.filter((m) => m.senderId === userId).length;
     if (mineCount === 1) {
       thread.messages.push({
         id: nextId("msg"),
         senderId: other,
-        body: TALENT_REPLIES[hashString(threadId) % TALENT_REPLIES.length],
+        body: SEEDED_REPLIES[hashString(threadId) % SEEDED_REPLIES.length],
         sentAt: iso(0),
       });
     }
   }
 }
 
-export function markThreadRead(user: DemoUser, threadId: string) {
+export function markThreadRead(userId: string, threadId: string) {
   const thread = db().threads.get(threadId);
-  if (thread) thread.readAt[user.id] = iso(0);
+  if (thread) thread.readAt[userId] = iso(0);
 }
 
 /* ---- billing ---------------------------------------------------------- */

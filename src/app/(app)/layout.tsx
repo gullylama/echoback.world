@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { currentUser } from "@/lib/session";
-import { countFeed, countUnread } from "@/lib/data";
+import { countFeed, countPendingRequests, countUnread } from "@/lib/data";
 import { signOutAction } from "@/app/actions";
 import { roleLabel } from "@/lib/demo/seed";
 
@@ -10,7 +10,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await currentUser();
   if (!user) redirect("/start");
 
-  const unread = await countUnread(user);
+  const [unread, pendingRequests] = await Promise.all([
+    countUnread(user),
+    countPendingRequests(user),
+  ]);
+  // Requests waiting on you and unread replies both belong on the inbox tab.
+  const inboxCount = unread + pendingRequests;
   const feedCount = user.role === "creator" ? 0 : await countFeed(user);
   const subActive = user.subscription?.status === "active";
 
@@ -19,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(user.role === "creator"
       ? [{ href: "/upload", label: "Upload" }]
       : [{ href: "/feed", label: "Feed", badge: feedCount }]),
-    { href: "/inbox", label: "Inbox", badge: unread },
+    { href: "/inbox", label: "Inbox", badge: inboxCount },
     { href: "/account", label: "Account" },
   ];
 
@@ -54,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 href="/pricing"
                 className="grad-audio hidden rounded-full px-4 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 sm:block"
               >
-                Unlock matches
+                {user.role === "creator" ? "Reveal matches" : "Search the feed"}
               </Link>
             )}
             <div className="hidden text-right sm:block">
