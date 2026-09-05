@@ -1,6 +1,6 @@
 # EchoBack — echoback.world
 
-*A demo echoes a real artist's sound; the match echoes back.*
+*Your music echoes a real artist's sound; the match echoes back.*
 
 EchoBack is a matching platform — **not** a music generator. Creators upload
 AI-made tracks and get a ranked list of the real artists and producers whose
@@ -38,11 +38,12 @@ Open http://localhost:3000. With no environment variables set the app runs in
 producers, simulated fingerprinting, and simulated billing — so the entire
 loop is experiencable immediately:
 
-1. Join as a **Creator** → upload a demo → see the blurred ranked matches
-2. Subscribe (instant in demo mode) → names reveal → express interest
-3. Strong matches reciprocate → the mutual-interest **inbox** opens
-4. Join as an **Artist** in another browser/profile → blurred feed count →
-   subscribe → swipe feed → mutual match overlay
+1. Join as a **Creator** → upload a track → see blurred ranked matches you can
+   already *hear*
+2. Subscribe (instant in demo mode) → names reveal → send a request with a note
+3. Join as an **Artist** in another browser → two creators are already waiting
+   in your inbox → hear their tracks and accept, **without subscribing**
+4. Subscribe as the artist → the searchable feed unlocks (sort, filter, swipe)
 
 Audio previews in demo mode are synthesised in-browser (a pentatonic phrase
 through a feedback delay — every preview literally echoes); in production the
@@ -62,10 +63,10 @@ Next.js App Router (Vercel, PWA)
 ```
 
 - **Three component vectors** per track — `vocal_vector`, `style_vector`,
-  `production_vector` — so a demo matches a *voice* and a *producer*
+  `production_vector` — so one track matches a *voice* and a *producer*
   independently. See `supabase/migrations/0001_init.sql` and
   `worker/fingerprint.py`.
-- **Blur is server-enforced.** Redaction happens in `src/lib/data.ts` before
+- **Blur is server-enforced.** Redaction happens in `src/lib/data/` before
   anything leaves the server; unsubscribed clients receive obscured
   stand-ins and counts, never real names or contacts. The CSS blur is
   presentation only. In Supabase mode the same rule holds via RLS: clients
@@ -84,11 +85,12 @@ src/app/                 Routes: landing, start, pricing + (app)/ studio,
                          upload, matches/[trackId], feed, inbox, account
 src/app/actions.ts       All mutations (server actions)
 src/lib/data/shared.ts   Gating rules — who may reveal, who may initiate
-src/lib/data.ts          Read layer with server-side redaction/gating
+src/lib/data/            Read layer: demo + Supabase behind one interface
 src/lib/demo/            Demo-mode store + seed content
 src/lib/stripe.ts        Checkout + price/tier mapping
 src/app/api/             stripe/webhook, fingerprint (worker callback)
-supabase/migrations/     Full schema: pgvector, matches, inbox, RLS
+supabase/migrations/     Schema: pgvector, matches, requests, inbox, RLS
+supabase/setup.sql       One-shot script for a fresh Supabase project
 worker/fingerprint.py    GPU embedding worker (CLAP + Demucs stems)
 ```
 
@@ -115,8 +117,10 @@ worker/fingerprint.py    GPU embedding worker (CLAP + Demucs stems)
 ## Design language
 
 Concept: **echolocation** — send an echo, feel it return, connect. A quiet,
-premium editorial base (warm grey/white, near-black ink, hairline rules,
-generous *ma* 間) with one reserved accent: the lilac→rose gradient, used
-**only for audio** — waveforms, similarity, the returning echo. Type is
-Instrument Sans + IBM Plex Mono for data. Tokens live in
-`src/app/globals.css`.
+premium editorial base in mineral-water white, with caustic light pools
+drifting behind the page, near-black ink, hairline rules and generous
+negative space. One reserved accent: the lilac→rose gradient, used **only for
+audio** — waveforms, similarity, the returning echo. Sound itself is drawn as
+soft indigo ink-blur, with sharp serif words surfacing from it. Type is
+Instrument Sans, Newsreader for display, IBM Plex Mono for data. Tokens live
+in `src/app/globals.css`.
