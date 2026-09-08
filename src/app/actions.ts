@@ -54,7 +54,7 @@ export async function signUpAction(formData: FormData) {
     },
   });
   if (error) startError(error.message);
-  if (!result.session) redirect("/start?check_email=1");
+  if (!result.session) redirect(`/start?check_email=${encodeURIComponent(email)}`);
   redirect("/studio");
 }
 
@@ -67,6 +67,30 @@ export async function signInAction(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) startError("Wrong email or password.", "signin");
   redirect("/studio");
+}
+
+/** Confirmation emails get lost and links expire — let people ask again. */
+export async function resendConfirmationAction(formData: FormData) {
+  if (!supabaseConfigured) redirect("/start");
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) redirect("/start");
+
+  const { supabaseServer } = await import("@/lib/supabase/server");
+  const supabase = await supabaseServer();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${SITE}/auth/callback` },
+  });
+  if (error) {
+    const tooSoon = /security purposes|rate|seconds/i.test(error.message);
+    startError(
+      tooSoon
+        ? "Just a moment — you can request another email in about a minute."
+        : "We couldn't send that email. Check the address and try again.",
+    );
+  }
+  redirect(`/start?check_email=${encodeURIComponent(email)}&resent=1`);
 }
 
 export async function googleSignInAction() {

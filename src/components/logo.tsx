@@ -1,7 +1,8 @@
 /*
-  The EchoBack mark: an orca back breaking the surface — dorsal fin atop
-  the outer wave — with the echo returning beneath it as nested arcs.
-  Monochrome, always: the gradient stays reserved for audio itself.
+  The EchoBack mark, traced from the supplied artwork: three nested arcs —
+  the echo returning — with a dorsal fin rising from the outermost one.
+  Monochrome by design: it inherits currentColor, and the lilac→rose
+  gradient stays reserved for audio itself.
 */
 
 export function LogoMark({ size = 28, className = "" }: { size?: number; className?: string }) {
@@ -14,22 +15,15 @@ export function LogoMark({ size = 28, className = "" }: { size?: number; classNa
       aria-hidden
       className={`shrink-0 ${className}`}
     >
-      {/* body arc + fin, one filled form */}
+      <g stroke="currentColor" strokeWidth="3.7" strokeLinecap="round" fill="none">
+        <path d="M6.03 27.7 A 22.4 22.4 0 0 1 42.17 27.7" />
+        <path d="M11 32.3 A 15.2 15.2 0 0 1 37.2 32.3" />
+        <path d="M14.3 36.5 A 12.1 12.1 0 0 1 33.9 36.5" />
+      </g>
       <path
         fill="currentColor"
-        d="M6 31
-           C 9.2 24.2, 14.6 19.8, 21.2 18.8
-           C 21.6 14.6, 23.4 10.4, 27.8 7.4
-           C 26.9 11.2, 27.6 14.6, 30.2 17.4
-           C 35.4 19.6, 39.6 24.6, 42 31
-           C 38 26, 31.8 23, 24 23
-           C 16.2 23, 10 26, 6 31 Z"
+        d="M19.4 16.4 C 18.95 13 19.5 9.9 21.2 9.5 C 22.9 9.15 24.2 10.1 25.6 11.3 C 27.2 12.7 28.2 14.4 30.3 17 C 26.2 16.3 22.4 15.7 19.4 16.4 Z"
       />
-      {/* the returning echo */}
-      <g stroke="currentColor" strokeWidth="4" strokeLinecap="round" fill="none">
-        <path d="M12.5 37.5 Q 24 30, 35.5 37.5" />
-        <path d="M18 44 Q 24 39.6, 30 44" />
-      </g>
     </svg>
   );
 }

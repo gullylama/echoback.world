@@ -4,6 +4,7 @@ import { SiteFooter, SiteNav } from "@/components/site-chrome";
 import {
   completeProfileAction,
   googleSignInAction,
+  resendConfirmationAction,
   signInAction,
   signUpAction,
 } from "@/app/actions";
@@ -40,25 +41,45 @@ const inputCls =
 export default async function StartPage({
   searchParams,
 }: {
-  searchParams: Promise<{ role?: string; mode?: string; error?: string; check_email?: string }>;
+  searchParams: Promise<{
+    role?: string;
+    mode?: string;
+    error?: string;
+    check_email?: string;
+    resent?: string;
+  }>;
 }) {
   const auth = await getAuthState();
   if (auth.kind === "authed") redirect("/studio");
-  const { role, mode, error, check_email } = await searchParams;
+  const { role, mode, error, check_email, resent } = await searchParams;
 
   return (
     <>
       <SiteNav />
       <main className="mx-auto max-w-3xl px-5 py-16 sm:px-8 sm:py-24">
         {error && (
-          <p className="mb-8 rounded-xl border border-rose-deep/40 bg-paper-raised px-4 py-3 text-sm text-rose-deep">
-            {error}
-          </p>
+          <div className="mb-8 rounded-xl border border-rose-deep/40 bg-paper-raised px-4 py-3">
+            <p className="text-sm text-rose-deep">{error}</p>
+            {!demoMode && /expired|incomplete/i.test(error) && (
+              <form action={resendConfirmationAction} className="mt-3 flex flex-wrap gap-2">
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  className="min-w-0 flex-1 rounded-full border border-hairline bg-paper px-4 py-2 text-sm outline-none focus:border-ink-faint"
+                />
+                <button className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-ink-soft">
+                  Send a new link
+                </button>
+              </form>
+            )}
+          </div>
         )}
         {auth.kind === "needs_profile" ? (
           <Onboarding email={auth.email} suggestedName={auth.suggestedName} role={role} />
         ) : check_email ? (
-          <CheckEmail />
+          <CheckEmail email={check_email} resent={Boolean(resent)} />
         ) : mode === "signin" ? (
           <SignIn />
         ) : (
@@ -300,14 +321,30 @@ function Onboarding({
 
 /* ---- bits -------------------------------------------------------------- */
 
-function CheckEmail() {
+function CheckEmail({ email, resent }: { email: string; resent: boolean }) {
   return (
     <div className="mx-auto max-w-md text-center">
       <p className="label text-ink-faint">One more step</p>
       <h1 className="font-serif-display mt-4 text-3xl">Check your inbox</h1>
       <p className="mt-4 text-sm leading-relaxed text-ink-soft">
-        We&rsquo;ve sent a confirmation link to your email. Open it and you&rsquo;ll
-        land straight in your studio.
+        We&rsquo;ve sent a confirmation link to <strong className="text-ink">{email}</strong>.
+        Open it and you&rsquo;ll land straight in your studio. It can take a minute
+        to arrive, and it may be in spam.
+      </p>
+      {resent && (
+        <p className="mt-4 text-sm text-ink-soft">Sent again just now.</p>
+      )}
+      <form action={resendConfirmationAction} className="mt-8">
+        <input type="hidden" name="email" value={email} />
+        <button className="rounded-full border border-hairline bg-paper-raised px-5 py-2.5 text-sm transition hover:border-ink-faint">
+          Send it again
+        </button>
+      </form>
+      <p className="mt-6 text-xs text-ink-faint">
+        Wrong address?{" "}
+        <Link href="/start" className="text-ink underline underline-offset-4">
+          Start over
+        </Link>
       </p>
     </div>
   );

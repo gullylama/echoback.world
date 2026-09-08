@@ -74,6 +74,9 @@ Next.js App Router (Vercel, PWA)
   server.
 - **Match caching.** Matches are recomputed when new relevant uploads are
   fingerprinted (`refresh_matches_for_track` SQL function), not per view.
+  Only pairings scoring **55+** are stored, and members never match
+  themselves — without a floor, one upload against 1,000 artists would write
+  1,000 rows, most of them noise around chance similarity.
 - **Profiles.** Members edit their location, craft line, genres and bio on
   `/account`; profiles are visible at `/profile/[id]` to anyone they share a
   request or conversation with, and to subscribers among their matches.
@@ -108,11 +111,55 @@ worker/fingerprint.py    GPU embedding worker (CLAP + Demucs stems)
    `/auth/callback` (first-time Google users pick a role in onboarding).
 3. **Stripe** — create the four monthly prices, set the price ids + webhook
    secret; point the webhook at `/api/stripe/webhook`.
-4. **Fingerprint worker** — run `worker/fingerprint.py` on a GPU host
-   (RunPod), sharing `FINGERPRINT_WORKER_SECRET` with the app. Uploads sit
-   in "the engine is listening" state until the worker posts vectors back.
-5. **Gate on match quality** (launch plan Phase 0): validate the engine on a
+4. **Email delivery** — Supabase's built-in mailer is rate-limited to a
+   couple of messages an hour and is explicitly not for production, so
+   confirmation emails silently stop arriving. Configure custom SMTP
+   (Resend) under Authentication → Emails → SMTP, and point the confirmation
+   template at `/auth/callback` using `token_hash` (see below). Set the Site
+   URL and add `<site>/auth/callback` to the redirect allow-list.
+5. **Fingerprint worker** — run `worker/fingerprint.py` on a host with the
+   model available, sharing `FINGERPRINT_WORKER_SECRET` with the app.
+   Uploads sit in "the engine is listening" state until the worker posts
+   vectors back.
+6. **Gate on match quality** (launch plan Phase 0): validate the engine on a
    hand-curated seed set before opening sign-ups.
+
+### Email templates
+
+Supabase's default templates use a PKCE `code`, which only works in the
+browser that started the sign-up — links opened on a phone after signing up
+on a laptop fail. Point the **Confirm signup** template at the token-hash
+flow instead, which works anywhere:
+
+```html
+<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">
+  Confirm your email
+</a>
+```
+
+`/auth/callback` accepts both flows plus Supabase's error redirects, and
+sends expired or reused links to a page offering a fresh one.
+
+### Proving the pipeline before the worker exists
+
+`POST /api/fingerprint/seed` fills pending uploads with deterministic
+**placeholder** vectors (`src/lib/placeholder-vectors.ts`) and refreshes
+cached matches, so the live loop can be walked end to end before any model
+is running. It is derived from the file hash, not its audio — the
+similarities are not real match quality.
+
+Two independent gates, both required: `SEED_FINGERPRINTS=1` (absent, the
+route 404s) and the `x-worker-secret` header matching
+`FINGERPRINT_WORKER_SECRET`.
+
+```bash
+curl -X POST https://echoback.world/api/fingerprint/seed \
+  -H "x-worker-secret: $FINGERPRINT_WORKER_SECRET"
+```
+
+**Remove `SEED_FINGERPRINTS` once the real worker is running**, and clear the
+seeded rows: `delete from fingerprints; delete from matches;` then set the
+affected tracks back to `status = 'uploaded'`.
 
 ## Design language
 
