@@ -692,6 +692,7 @@ export async function getProfile(
     .or(
       `and(creator_id.eq.${user.id},talent_id.eq.${profileId}),and(creator_id.eq.${profileId},talent_id.eq.${user.id})`
     )
+    .limit(1)
     .maybeSingle();
   if (thread) return buildProfileView(profileId);
 
@@ -701,6 +702,7 @@ export async function getProfile(
     .or(
       `and(sender_id.eq.${user.id},recipient_id.eq.${profileId}),and(sender_id.eq.${profileId},recipient_id.eq.${user.id})`
     )
+    .limit(1)
     .maybeSingle();
   if (request) return buildProfileView(profileId);
 
@@ -722,6 +724,7 @@ export async function getProfile(
       .select("id")
       .eq("talent_profile_id", profileId)
       .in("demo_track_id", ids)
+      .limit(1)
       .maybeSingle();
     return match ? buildProfileView(profileId) : null;
   }
@@ -735,6 +738,7 @@ export async function getProfile(
     .select("id")
     .eq("talent_profile_id", user.id)
     .in("demo_track_id", ids)
+    .limit(1)
     .maybeSingle();
   return match ? buildProfileView(profileId) : null;
 }
