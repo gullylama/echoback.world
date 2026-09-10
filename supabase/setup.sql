@@ -372,3 +372,23 @@ begin
   end if;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Audio metadata captured at upload (migration 0005)
+-- ---------------------------------------------------------------------------
+alter table tracks
+  add column if not exists byte_size bigint,
+  add column if not exists peaks smallint[];
+
+-- Bound the array so a malformed client can't write a huge row.
+alter table tracks
+  drop constraint if exists tracks_peaks_len;
+alter table tracks
+  add constraint tracks_peaks_len
+  check (peaks is null or array_length(peaks, 1) <= 400);
+
+-- ---------------------------------------------------------------------------
+-- Email notification preference (migration 0006)
+-- ---------------------------------------------------------------------------
+alter table profiles
+  add column if not exists email_notifications boolean not null default true;

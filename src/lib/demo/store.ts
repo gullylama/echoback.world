@@ -193,6 +193,7 @@ function seedTalentSide(user: DemoUser) {
     seed: previewSeedFor(user.id),
     status: "fingerprinted",
     consentConfirmed: true,
+    audio: { trackId: null, peaks: null, seed: previewSeedFor(user.id) },
   };
   d.tracks.set(refTrack.id, refTrack);
 
@@ -208,6 +209,7 @@ function seedTalentSide(user: DemoUser) {
       seed: hashString(f.title),
       status: "fingerprinted",
       consentConfirmed: true,
+      audio: { trackId: null, peaks: null, seed: hashString(f.title) },
     };
     d.tracks.set(track.id, track);
     const talentProfile = d.profiles.get(user.id)!;
@@ -271,6 +273,11 @@ export function createDemoTrack(user: DemoUser, title: string, kind: Track["kind
     seed: isRef ? previewSeedFor(user.id) : hashString(user.id + ":" + title + ":" + d.counter),
     status: "fingerprinted",
     consentConfirmed: true,
+    audio: {
+      trackId: null,
+      peaks: null,
+      seed: isRef ? previewSeedFor(user.id) : hashString(user.id + ":" + title + ":" + d.counter),
+    },
   };
   d.tracks.set(track.id, track);
 

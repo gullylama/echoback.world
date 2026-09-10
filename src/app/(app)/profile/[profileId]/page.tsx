@@ -80,14 +80,19 @@ export default async function ProfilePage({
           <p className="label text-ink-faint">
             {profile.role === "artist" ? "Their voice" : "Their sound"}
           </p>
-          {profile.previewSeed !== null ? (
+          {profile.preview ? (
             <>
               <p className="mt-3 text-sm leading-relaxed text-ink-soft">
                 {profile.referenceCount} reference upload
                 {profile.referenceCount === 1 ? "" : "s"} seeding the library — this is
                 what tracks get matched against.
               </p>
-              <TrackPlayer seed={profile.previewSeed} className="mt-4" height={40} />
+              <TrackPlayer
+                audio={profile.preview}
+                label={`${profile.displayName} — reference`}
+                className="mt-4"
+                height={40}
+              />
             </>
           ) : (
             <p className="mt-3 text-sm leading-relaxed text-ink-soft">

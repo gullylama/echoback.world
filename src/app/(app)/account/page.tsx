@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
-import { getOwnProfile } from "@/lib/data";
-import { cancelSubscriptionAction, signOutAction, updateProfileAction } from "@/app/actions";
+import { getEmailNotifications, getOwnProfile } from "@/lib/data";
+import {
+  cancelSubscriptionAction,
+  deleteAccountAction,
+  setEmailNotificationsAction,
+  signOutAction,
+  updateProfileAction,
+} from "@/app/actions";
 import { ALL_GENRES, TIER_META } from "@/lib/types";
 import { roleLabel } from "@/lib/demo/seed";
 import { demoMode } from "@/lib/config";
@@ -15,11 +21,15 @@ const inputCls =
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; delete_error?: string }>;
 }) {
   const user = await currentUser();
   if (!user) redirect("/start");
-  const [profile, { saved }] = await Promise.all([getOwnProfile(user), searchParams]);
+  const [profile, emailsOn, { saved, delete_error }] = await Promise.all([
+    getOwnProfile(user),
+    getEmailNotifications(user),
+    searchParams,
+  ]);
   const sub = user.subscription;
   const isTalent = user.role !== "creator";
 
@@ -208,11 +218,52 @@ export default async function AccountPage({
         </p>
       )}
 
+      {/* ---- notifications ---- */}
+      <section className="mt-6 rounded-2xl border border-hairline bg-paper-raised p-7">
+        <p className="label text-ink-faint">Email</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+          We email you when someone asks to work with you, when a request you sent
+          is accepted, and when you get a reply. Nothing else — no marketing.
+        </p>
+        <form action={setEmailNotificationsAction.bind(null, !emailsOn)} className="mt-5">
+          <button className="rounded-full border border-hairline px-5 py-2.5 text-sm transition hover:border-ink-faint">
+            {emailsOn ? "Turn these emails off" : "Turn these emails on"}
+          </button>
+        </form>
+      </section>
+
       <form action={signOutAction} className="mt-10">
         <button className="rounded-full border border-hairline px-5 py-2.5 text-sm text-ink-soft transition hover:border-ink-faint hover:text-ink">
           Sign out
         </button>
       </form>
+
+      {/* ---- erasure ---- */}
+      <section className="mt-10 rounded-2xl border border-rose-deep/30 bg-paper-raised p-7">
+        <p className="label text-rose-deep">Delete account</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+          This removes your profile, every upload and its fingerprints, all your
+          matches and requests, and your conversations — including for the people
+          you were talking to. It cannot be undone.
+        </p>
+        {delete_error && (
+          <p className="mt-4 text-sm text-rose-deep">
+            Type DELETE exactly to confirm.
+          </p>
+        )}
+        <form action={deleteAccountAction} className="mt-5 flex flex-wrap gap-2">
+          <input
+            name="confirm"
+            required
+            placeholder="Type DELETE"
+            aria-label="Type DELETE to confirm"
+            className="min-w-0 flex-1 rounded-full border border-hairline bg-paper px-4 py-2.5 text-sm outline-none transition placeholder:text-ink-faint/70 focus:border-rose-deep"
+          />
+          <button className="rounded-full border border-rose-deep/50 px-5 py-2.5 text-sm font-medium text-rose-deep transition hover:bg-rose-deep hover:text-white">
+            Delete permanently
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

@@ -117,11 +117,25 @@ worker/fingerprint.py    GPU embedding worker (CLAP + Demucs stems)
    (Resend) under Authentication → Emails → SMTP, and point the confirmation
    template at `/auth/callback` using `token_hash` (see below). Set the Site
    URL and add `<site>/auth/callback` to the redirect allow-list.
-5. **Fingerprint worker** — run `worker/fingerprint.py` on a host with the
-   model available, sharing `FINGERPRINT_WORKER_SECRET` with the app.
-   Uploads sit in "the engine is listening" state until the worker posts
-   vectors back.
-6. **Gate on match quality** (launch plan Phase 0): validate the engine on a
+5. **Notification email** — set `RESEND_API_KEY` (and optionally
+   `RESEND_FROM`) so people hear about requests, acceptances and replies
+   when they are not on the site. Every send is best-effort and fired after
+   the response, so a missing key or a slow API never breaks the action that
+   triggered it. Recipients can switch these off in Account.
+6. **Fingerprint worker** — run `worker/fingerprint.py` on a host with a GPU,
+   sharing `FINGERPRINT_WORKER_SECRET` with the app. Uploads sit in "the
+   engine is listening" state until the worker posts vectors back.
+   `worker/Dockerfile` builds it with ffmpeg and the Python deps:
+
+   ```bash
+   docker build -t echoback-worker worker/
+   docker run --gpus all --env-file .env.worker echoback-worker
+   ```
+
+   Besides the three component vectors, the worker cuts a 30-second preview
+   clip to `<path>.preview.mp3` and backfills duration and waveform for any
+   file the browser could not decode at upload.
+7. **Gate on match quality** (launch plan Phase 0): validate the engine on a
    hand-curated seed set before opening sign-ups.
 
 ### Email templates
@@ -139,6 +153,25 @@ flow instead, which works anywhere:
 
 `/auth/callback` accepts both flows plus Supabase's error redirects, and
 sends expired or reused links to a page offering a fresh one.
+
+### Who can hear what
+
+Audio is never handed out as a storage URL. Playback goes through
+`GET /api/audio/[trackId]`, which re-resolves authorisation on every hit
+(`src/lib/audio-access.ts`), so a cancelled subscription or a declined
+request takes effect at once rather than whenever a signed link expires.
+
+| Relationship                              | Access                       |
+| ----------------------------------------- | ---------------------------- |
+| Your own upload                            | full, with byte-range seeking |
+| A request or conversation, either direction | full — you cannot judge what you cannot hear, and answering is free |
+| Matched only                               | 30-second preview            |
+| No relationship                            | 403                          |
+
+Previews are served as a plain `200` of the opening slice with **no**
+`Accept-Ranges`, and the route truncates the stream itself rather than
+trusting storage to honour the range — so the rest of the file cannot be
+asked for. The blur in the UI is presentation; this is the boundary.
 
 ### Proving the pipeline before the worker exists
 

@@ -45,7 +45,7 @@ export default async function MatchesPage({
             Your track{track.durationSec ? ` · ${fmtDuration(track.durationSec)}` : ""}
           </p>
         </div>
-        <TrackPlayer seed={track.seed} className="flex-1" />
+        <TrackPlayer audio={track.audio} label={track.title} className="flex-1" />
         <div className="text-sm text-ink-soft sm:text-right">
           <p>
             <span className="font-mono text-xl font-medium grad-audio-text">{artists.length}</span>{" "}
@@ -180,7 +180,8 @@ function MatchCard({ match, rank }: { match: MatchView; rank: number }) {
           <p className="mt-1 truncate text-sm text-ink-soft">{t.craft}</p>
           {/* Hearing them is free. Reaching them is what costs. */}
           <TrackPlayer
-            seed={match.previewSeed}
+            audio={match.preview}
+            label={`${t.displayName} — preview`}
             height={26}
             barCount={40}
             className="mt-3 max-w-xs"

@@ -93,7 +93,13 @@ function FeedRow({ item }: { item: FeedItemView }) {
         <p className="mt-0.5 text-xs text-ink-faint">{timeAgo(item.createdAt)}</p>
       </div>
 
-      <TrackPlayer seed={item.demo.seed} className="min-w-0 flex-1" height={30} barCount={48} />
+      <TrackPlayer
+        audio={item.demo.audio}
+        label={item.demo.title}
+        className="min-w-0 flex-1"
+        height={30}
+        barCount={48}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-4 lg:w-64 lg:justify-end">
         <div className="flex items-baseline gap-3">

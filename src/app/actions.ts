@@ -11,7 +11,13 @@ import {
   getAuthState,
   setSessionCookie,
 } from "@/lib/session";
+import { after } from "next/server";
 import { stripeConfigured, supabaseConfigured } from "@/lib/config";
+import {
+  notifyNewMessage,
+  notifyRequestAccepted,
+  notifyRequestReceived,
+} from "@/lib/email";
 import * as data from "@/lib/data";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -159,27 +165,55 @@ export async function updateProfileAction(formData: FormData) {
   redirect("/account?saved=1");
 }
 
-/* ---- upload ----------------------------------------------------------- */
+/* ---- upload -----------------------------------------------------------
+   The file goes straight from the browser to storage: Vercel caps
+   serverless request bodies at 4.5MB, which no real song fits under. The
+   server only reserves the slot and records what landed. */
 
-export async function uploadTrackAction(formData: FormData) {
+function kindFor(role: UserRole): TrackKind {
+  return role === "creator" ? "demo" : role === "artist" ? "voice" : "production";
+}
+
+export async function createUploadTicketAction(ext: string) {
   const user = await currentUser();
-  if (!user) redirect("/start");
-  const title = String(formData.get("title") ?? "").trim().slice(0, 80);
-  const consent = formData.get("consent") === "on";
-  const rights = formData.get("rights") === "on";
-  if (!title || !consent || !rights) return;
+  if (!user) return { ok: false as const, reason: "auth" };
+  const ticket = await data.createUploadTicket(user, ext);
+  if (!ticket) {
+    // Demo mode has nowhere to put it — the caller finalises without a file.
+    return { ok: true as const, ticket: null };
+  }
+  return { ok: true as const, ticket };
+}
 
-  const file = formData.get("file");
-  const kind: TrackKind =
-    user.role === "creator" ? "demo" : user.role === "artist" ? "voice" : "production";
-  const track = await data.createTrack(user, {
+export async function finaliseUploadAction(meta: {
+  title: string;
+  path: string;
+  contentHash: string;
+  byteSize: number;
+  durationSec: number;
+  peaks: number[];
+}) {
+  const user = await currentUser();
+  if (!user) return { ok: false as const, reason: "auth" };
+  const title = meta.title.trim().slice(0, 80);
+  if (!title) return { ok: false as const, reason: "title" };
+
+  const kind = kindFor(user.role);
+  const track = await data.finaliseUpload(user, kind, {
     title,
-    kind,
-    file: file instanceof File ? file : null,
+    path: meta.path,
+    contentHash: meta.contentHash,
+    byteSize: meta.byteSize,
+    durationSec: meta.durationSec,
+    peaks: Array.isArray(meta.peaks) ? meta.peaks.slice(0, 400) : [],
   });
-  if (!track) redirect("/upload?error=1");
-  if (kind === "demo") redirect(`/matches/${track.id}`);
-  redirect("/studio");
+  if (!track) return { ok: false as const, reason: "store" };
+
+  revalidatePath("/studio");
+  return {
+    ok: true as const,
+    next: kind === "demo" ? `/matches/${track.id}` : "/studio",
+  };
 }
 
 export async function deleteTrackAction(trackId: string) {
@@ -196,7 +230,26 @@ export async function deleteTrackAction(trackId: string) {
 export async function sendRequestAction(matchId: string, note?: string) {
   const user = await currentUser();
   if (!user) redirect("/start");
-  const result = await data.sendRequest(user, matchId, note?.trim().slice(0, 500) || null);
+  const cleanNote = note?.trim().slice(0, 500) || null;
+  const result = await data.sendRequest(user, matchId, cleanNote);
+
+  // Notification runs after the response — it must never delay or break
+  // the action that triggered it.
+  if (result.ok && result.recipientId) {
+    const recipientId = result.recipientId;
+    const trackTitle = result.trackTitle ?? "a track";
+    after(async () => {
+      const target = await data.notifyTarget(recipientId);
+      if (target) {
+        await notifyRequestReceived(target.email, {
+          senderName: user.displayName,
+          trackTitle,
+          note: cleanNote,
+        });
+      }
+    });
+  }
+
   revalidatePath("/matches/[trackId]", "page");
   revalidatePath("/feed");
   revalidatePath("/inbox");
@@ -206,10 +259,26 @@ export async function sendRequestAction(matchId: string, note?: string) {
 export async function respondRequestAction(requestId: string, accept: boolean) {
   const user = await currentUser();
   if (!user) redirect("/start");
-  const threadId = await data.respondToRequest(user, requestId, accept);
+  const result = await data.respondToRequest(user, requestId, accept);
+
+  if (accept && result.threadId && result.senderId) {
+    const { senderId, threadId } = result;
+    const trackTitle = result.trackTitle ?? "your track";
+    after(async () => {
+      const target = await data.notifyTarget(senderId);
+      if (target) {
+        await notifyRequestAccepted(target.email, {
+          recipientName: user.displayName,
+          trackTitle,
+          threadId,
+        });
+      }
+    });
+  }
+
   revalidatePath("/inbox");
   revalidatePath("/studio");
-  return { threadId };
+  return { threadId: result.threadId };
 }
 
 export async function passAction(matchId: string) {
@@ -228,7 +297,22 @@ export async function sendMessageAction(threadId: string, formData: FormData) {
   if (!body) return;
   // Conversations stay open regardless of subscription — you are never
   // silenced mid-collaboration for lapsing.
-  await data.sendMessage(user, threadId, body);
+  const sent = await data.sendMessage(user, threadId, body);
+
+  if (sent?.otherPartyId) {
+    const otherPartyId = sent.otherPartyId;
+    after(async () => {
+      const target = await data.notifyTarget(otherPartyId);
+      if (target) {
+        await notifyNewMessage(target.email, {
+          senderName: user.displayName,
+          preview: body,
+          threadId,
+        });
+      }
+    });
+  }
+
   revalidatePath(`/inbox/${threadId}`);
 }
 
@@ -255,6 +339,29 @@ export async function subscribeAction(tier: Tier) {
 
   await data.setSubscription(user, tier);
   redirect(user.role === "creator" ? "/studio" : "/feed");
+}
+
+/** Right to erasure — irreversible, so it needs the word typed out. */
+export async function deleteAccountAction(formData: FormData) {
+  const user = await currentUser();
+  if (!user) redirect("/start");
+  if (String(formData.get("confirm") ?? "").trim().toUpperCase() !== "DELETE") {
+    redirect("/account?delete_error=1");
+  }
+  await data.deleteAccount(user);
+  if (supabaseConfigured) {
+    const { supabaseServer } = await import("@/lib/supabase/server");
+    await (await supabaseServer()).auth.signOut();
+  }
+  await clearSessionCookie();
+  redirect("/?deleted=1");
+}
+
+export async function setEmailNotificationsAction(enabled: boolean) {
+  const user = await currentUser();
+  if (!user) redirect("/start");
+  await data.setEmailNotifications(user, enabled);
+  revalidatePath("/account");
 }
 
 export async function cancelSubscriptionAction() {

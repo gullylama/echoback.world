@@ -71,9 +71,18 @@ export function SiteFooter() {
             </div>
             <div className="flex flex-col gap-2.5">
               <span className="label text-ink-faint">Company</span>
-              <span className="cursor-default text-ink-faint">Rights &amp; consent</span>
-              <span className="cursor-default text-ink-faint">Privacy</span>
-              <span className="cursor-default text-ink-faint">Contact</span>
+              <Link href="/legal/rights" className="transition hover:text-ink">
+                Rights &amp; consent
+              </Link>
+              <Link href="/legal/privacy" className="transition hover:text-ink">
+                Privacy
+              </Link>
+              <Link href="/legal/terms" className="transition hover:text-ink">
+                Terms
+              </Link>
+              <a href="mailto:hello@echoback.world" className="transition hover:text-ink">
+                Contact
+              </a>
             </div>
           </nav>
         </div>

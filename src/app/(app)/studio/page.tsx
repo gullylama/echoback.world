@@ -97,7 +97,7 @@ async function CreatorStudio() {
                   <RemoveButton trackId={track.id} />
                 </div>
               </div>
-              <TrackPlayer seed={track.seed} className="flex-1" height={34} />
+              <TrackPlayer audio={track.audio} label={track.title} className="flex-1" height={34} />
               <div className="flex items-center gap-6 sm:w-72 sm:justify-end">
                 {track.status !== "fingerprinted" ? (
                   <span className="text-sm text-ink-faint">
@@ -245,7 +245,7 @@ async function TalentStudio() {
                       {t.status === "failed" ? "Fingerprinting failed" : "The engine is listening…"}
                     </p>
                   )}
-                  <TrackPlayer seed={t.seed} height={26} barCount={44} className="mt-2" />
+                  <TrackPlayer audio={t.audio} label={t.title} height={26} barCount={44} className="mt-2" />
                 </li>
               ))}
             </ul>

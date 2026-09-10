@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
-import { uploadTrackAction } from "@/app/actions";
 import { demoMode } from "@/lib/config";
 import { UploadForm } from "./upload-form";
 
@@ -54,7 +53,6 @@ export default async function UploadPage({
       )}
 
       <UploadForm
-        action={uploadTrackAction}
         titleLabel={copy.titleLabel}
         placeholder={copy.placeholder}
         demoMode={demoMode}

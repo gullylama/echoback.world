@@ -114,7 +114,7 @@ export function SwipeDeck({ initialItems }: { initialItems: FeedItemView[] }) {
                   {item.demo.genres.length > 0 && <> · {item.demo.genres.join(", ")}</>}
                   {item.demo.durationSec > 0 && <> · {fmtDuration(item.demo.durationSec)}</>}
                 </p>
-                <TrackPlayer seed={item.demo.seed} className="mt-6" height={48} />
+                <TrackPlayer audio={item.demo.audio} label={item.demo.title} className="mt-6" height={48} />
                 <div className="mt-6 grid grid-cols-2 gap-3 border-t border-hairline pt-4 text-center">
                   <div>
                     <p className="label text-ink-faint">

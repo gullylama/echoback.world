@@ -41,10 +41,43 @@ export interface Track {
   title: string;
   durationSec: number;
   createdAt: string;
-  /** deterministic seed for waveform + preview playback */
+  /** deterministic seed for the synthesised fallback used in demo mode */
   seed: number;
   status: "processing" | "fingerprinted" | "failed";
   consentConfirmed: boolean;
+  audio: AudioRef;
+}
+
+/**
+ * Everything the player needs, resolved server-side.
+ *
+ * `trackId` is null only when there is no stored file (demo mode), in which
+ * case the player synthesises a placeholder from `seed`. Playback always
+ * goes through /api/audio/[trackId], which re-checks authorisation and caps
+ * pre-reveal listening — never a raw storage URL.
+ */
+export interface AudioRef {
+  trackId: string | null;
+  /** real waveform captured in the browser at upload; null falls back to `seed` */
+  peaks: number[] | null;
+  seed: number;
+}
+
+/** A signed slot in storage the browser can PUT straight to. */
+export interface UploadTicket {
+  path: string;
+  signedUrl: string;
+  token: string;
+}
+
+/** What the browser measured about the file, handed back to finalise it. */
+export interface UploadMetadata {
+  title: string;
+  path: string;
+  contentHash: string;
+  byteSize: number;
+  durationSec: number;
+  peaks: number[];
 }
 
 export interface ComponentScores {
@@ -74,8 +107,8 @@ export interface MatchView {
   demoTrackId: string;
   scores: ComponentScores;
   revealed: boolean;
-  /** plays the talent's reference audio — available before paying */
-  previewSeed: number;
+  /** the talent's reference audio — audible before paying */
+  preview: AudioRef;
   talent: {
     role: UserRole;
     /** redacted to an obscured stand-in when revealed=false */
@@ -99,9 +132,10 @@ export interface FeedItemView {
   demo: {
     title: string; // redacted when not revealed
     durationSec: number;
-    seed: number;
     creatorName: string; // redacted when not revealed
     genres: string[];
+    /** trackId is null until revealed — an unpaid feed is not playable */
+    audio: AudioRef;
   };
   request: RequestSummary | null;
 }
@@ -135,7 +169,7 @@ export interface RequestView {
     location: string;
   };
   /** the AI track the request is about — always playable by both sides */
-  track: { title: string; seed: number; durationSec: number };
+  track: { title: string; durationSec: number; audio: AudioRef };
 }
 
 export interface ThreadView {
@@ -167,7 +201,7 @@ export interface ProfileView {
   genres: string[];
   craft: string;
   avatarSeed: number;
-  previewSeed: number | null;
+  preview: AudioRef | null;
   referenceCount: number;
 }
 

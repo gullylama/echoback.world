@@ -5,8 +5,8 @@
   here (clients have no direct read policies on matches/fingerprints).
 */
 
-import { createHash } from "crypto";
 import type {
+  AudioRef,
   FeedItemView,
   FeedQuery,
   MatchView,
@@ -23,6 +23,8 @@ import type {
   Tier,
   Track,
   TrackKind,
+  UploadMetadata,
+  UploadTicket,
   UserRole,
 } from "@/lib/types";
 import { hashString, obscureName } from "@/lib/demo/seed";
@@ -51,6 +53,16 @@ function mapProfile(row: any): Profile {
   };
 }
 
+function mapPeaks(raw: unknown): number[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  return raw.map((n) => Number(n) || 0);
+}
+
+/** The player only ever gets a track id — never a storage URL. */
+function audioRef(trackId: string | null, peaks: unknown, seedKey: string): AudioRef {
+  return { trackId, peaks: mapPeaks(peaks), seed: hashString(seedKey) };
+}
+
 function mapTrack(row: any): Track {
   const status =
     row.status === "fingerprinted" ? "fingerprinted" : row.status === "failed" ? "failed" : "processing";
@@ -64,11 +76,13 @@ function mapTrack(row: any): Track {
     seed: hashString(row.id),
     status,
     consentConfirmed: Boolean(row.consent_confirmed),
+    audio: audioRef(row.storage_path ? row.id : null, row.peaks, row.id),
   };
 }
 
 const PROFILE_COLS = "id, role, display_name, location, bio, genres, craft";
-const TRACK_COLS = "id, owner_id, kind, title, duration_sec, created_at, status, consent_confirmed";
+const TRACK_COLS =
+  "id, owner_id, kind, title, duration_sec, created_at, status, consent_confirmed, peaks, storage_path";
 const MATCH_COLS = "id, demo_track_id, talent_track_id, vocal_score, style_score, production_score, blended_score, created_at";
 
 function scoresOf(r: any) {
@@ -104,48 +118,98 @@ export async function getTrack(user: SessionUser, trackId: string): Promise<Trac
 const AUDIO_BUCKET = "audio";
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
-export async function createTrack(
+const ALLOWED_EXT = new Set(["mp3", "wav", "m4a", "mp4", "ogg", "oga", "flac", "aac"]);
+
+/**
+ * Reserve a slot in storage the browser can PUT straight to.
+ *
+ * The file never passes through the app: Vercel caps serverless request
+ * bodies at 4.5MB, which no real song fits under.
+ */
+export async function createUploadTicket(
   user: SessionUser,
-  input: { title: string; kind: TrackKind; file?: File | null }
+  ext: string
+): Promise<UploadTicket | null> {
+  const clean = ext.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 4);
+  if (!ALLOWED_EXT.has(clean)) return null;
+
+  const path = `${user.id}/${crypto.randomUUID()}.${clean}`;
+  const { data, error } = await serviceClient()
+    .storage.from(AUDIO_BUCKET)
+    .createSignedUploadUrl(path);
+  if (error || !data) return null;
+  return { path: data.path ?? path, signedUrl: data.signedUrl, token: data.token };
+}
+
+/**
+ * Turn an uploaded object into a track row.
+ *
+ * The object's real size is read back from storage rather than trusted from
+ * the client, and the path must sit inside the caller's own folder.
+ */
+export async function finaliseUpload(
+  user: SessionUser,
+  kind: TrackKind,
+  meta: UploadMetadata
 ): Promise<Track | null> {
-  const file = input.file;
-  if (!file || file.size === 0 || file.size > MAX_UPLOAD_BYTES) return null;
-
+  if (!meta.path.startsWith(`${user.id}/`)) return null;
   const svc = serviceClient();
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const contentHash = createHash("sha256").update(buffer).digest("hex");
 
-  // Idempotent fingerprinting: same file from the same owner dedupes.
-  const { data: existing } = await svc
-    .from("tracks")
-    .select(TRACK_COLS)
-    .eq("owner_id", user.id)
-    .eq("content_hash", contentHash)
-    .maybeSingle();
-  if (existing) return mapTrack(existing);
+  const slash = meta.path.lastIndexOf("/");
+  const dir = meta.path.slice(0, slash);
+  const name = meta.path.slice(slash + 1);
+  const { data: listed } = await svc.storage.from(AUDIO_BUCKET).list(dir, { search: name });
+  const object = (listed ?? []).find((o: any) => o.name === name) as any;
+  if (!object) return null;
 
-  const ext = (file.name.split(".").pop() || "mp3").toLowerCase().slice(0, 5);
-  const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-  const { error: upErr } = await svc.storage.from(AUDIO_BUCKET).upload(path, buffer, {
-    contentType: file.type || "audio/mpeg",
-  });
-  if (upErr) return null;
+  const byteSize = Number(object.metadata?.size ?? meta.byteSize) || null;
+  if (byteSize && byteSize > MAX_UPLOAD_BYTES) {
+    await svc.storage.from(AUDIO_BUCKET).remove([meta.path]);
+    return null;
+  }
+
+  const contentHash = /^[a-f0-9]{64}$/.test(meta.contentHash) ? meta.contentHash : null;
+
+  // Idempotent fingerprinting: the same file from the same owner dedupes.
+  if (contentHash) {
+    const { data: existing } = await svc
+      .from("tracks")
+      .select(TRACK_COLS)
+      .eq("owner_id", user.id)
+      .eq("content_hash", contentHash)
+      .maybeSingle();
+    if (existing) {
+      await svc.storage.from(AUDIO_BUCKET).remove([meta.path]);
+      return mapTrack(existing);
+    }
+  }
+
+  const peaks = meta.peaks
+    .slice(0, 400)
+    .map((p) => Math.max(0, Math.min(1000, Math.round(Number(p) || 0))));
+  const duration = Number(meta.durationSec);
 
   const { data, error } = await svc
     .from("tracks")
     .insert({
       owner_id: user.id,
-      kind: input.kind,
-      title: input.title,
-      storage_path: path,
+      kind,
+      title: meta.title,
+      storage_path: meta.path,
       content_hash: contentHash,
+      byte_size: byteSize,
+      duration_sec: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null,
+      peaks: peaks.length ? peaks : null,
       status: "uploaded",
       consent_confirmed: true,
       rights_confirmed: true,
     })
     .select(TRACK_COLS)
     .single();
-  if (error || !data) return null;
+  if (error || !data) {
+    await svc.storage.from(AUDIO_BUCKET).remove([meta.path]);
+    return null;
+  }
   return mapTrack(data);
 }
 
@@ -217,7 +281,10 @@ export async function getMatchesForTrack(user: SessionUser, trackId: string): Pr
   if (!track) return [];
   const { data } = await serviceClient()
     .from("matches")
-    .select(`${MATCH_COLS}, talent:profiles!matches_talent_profile_id_fkey(${PROFILE_COLS})`)
+    .select(
+      `${MATCH_COLS}, talent:profiles!matches_talent_profile_id_fkey(${PROFILE_COLS}),
+       talent_track:tracks!matches_talent_track_id_fkey(id, peaks, storage_path)`
+    )
     .eq("demo_track_id", trackId)
     .order("blended_score", { ascending: false });
   const rows = data ?? [];
@@ -226,6 +293,7 @@ export async function getMatchesForTrack(user: SessionUser, trackId: string): Pr
 
   return rows.map((r: any) => {
     const talent = mapProfile(one(r.talent));
+    r.talent_track = one<any>(r.talent_track);
     const revealed = creatorCanReveal(user, talent.role as "artist" | "producer");
     return {
       id: r.id,
@@ -233,7 +301,11 @@ export async function getMatchesForTrack(user: SessionUser, trackId: string): Pr
       scores: scoresOf(r),
       revealed,
       // The voice is audible before paying — reaching it is what costs.
-      previewSeed: hashString(r.talent_track_id ?? talent.id),
+      preview: audioRef(
+        r.talent_track?.storage_path ? r.talent_track_id : null,
+        r.talent_track?.peaks,
+        r.talent_track_id ?? talent.id
+      ),
       talent: talentView(revealed, talent, r.id),
       request: summarise(requests.get(r.id), user.id, threads.get(r.id) ?? null),
     };
@@ -263,7 +335,7 @@ async function feedRows(user: SessionUser) {
   const { data } = await serviceClient()
     .from("matches")
     .select(
-      `${MATCH_COLS}, demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, created_at, status, owner:profiles!tracks_owner_id_fkey(id, display_name, genres))`
+      `${MATCH_COLS}, demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, created_at, status, peaks, storage_path, owner:profiles!tracks_owner_id_fkey(id, display_name, genres))`
     )
     .eq("talent_profile_id", user.id)
     .order("blended_score", { ascending: false });
@@ -298,17 +370,21 @@ function toFeedItem(user: SessionUser, r: any, revealed: boolean): FeedItemView 
       ? {
           title: demo?.title ?? "Track",
           durationSec: demo?.duration_sec ?? 0,
-          seed: hashString(demo?.id ?? r.id),
           creatorName: owner?.display_name ?? "Creator",
           genres: owner?.genres ?? [],
+          audio: audioRef(
+            demo?.storage_path ? demo.id : null,
+            demo?.peaks,
+            demo?.id ?? r.id
+          ),
         }
       : {
           title: obscureName(r.id + ":t"),
           durationSec: demo?.duration_sec ?? 0,
-          // decoy waveform only — unrevealed feed items are not playable
-          seed: hashString(r.id + ":shape"),
           creatorName: obscureName(r.id + ":c"),
           genres: owner?.genres ?? [],
+          // No trackId and a decoy shape: an unpaid feed is not playable.
+          audio: audioRef(null, null, hashString(r.id + ":shape").toString()),
         },
     request: null, // feed only contains pairings with no request yet
   };
@@ -363,7 +439,15 @@ export async function sendRequest(
   user: SessionUser,
   matchId: string,
   note: string | null
-): Promise<{ ok: boolean; state?: string; threadId?: string | null; reason?: string }> {
+): Promise<{
+  ok: boolean;
+  state?: string;
+  threadId?: string | null;
+  reason?: string;
+  /** context for the notification email, when a new request was created */
+  recipientId?: string;
+  trackTitle?: string;
+}> {
   const svc = serviceClient();
   const parties = await partiesFor(matchId);
   if (!parties) return { ok: false, reason: "not_found" };
@@ -399,32 +483,46 @@ export async function sendRequest(
     note,
   });
   if (error) return { ok: false, reason: "not_found" };
-  return { ok: true, state: "pending", threadId: null };
+
+  const { data: match } = await svc
+    .from("matches")
+    .select("demo:tracks!matches_demo_track_id_fkey(title)")
+    .eq("id", matchId)
+    .maybeSingle();
+  return {
+    ok: true,
+    state: "pending",
+    threadId: null,
+    recipientId,
+    trackTitle: one<any>(match?.demo)?.title ?? "a track",
+  };
 }
 
 export async function respondToRequest(
   user: SessionUser,
   requestId: string,
   accept: boolean
-): Promise<string | null> {
+): Promise<{ threadId: string | null; senderId?: string; trackTitle?: string }> {
   const svc = serviceClient();
   const { data: request } = await svc
     .from("requests")
     .select("id, match_id, sender_id, recipient_id, state")
     .eq("id", requestId)
     .maybeSingle();
-  if (!request || request.recipient_id !== user.id || request.state !== "pending") return null;
+  if (!request || request.recipient_id !== user.id || request.state !== "pending") {
+    return { threadId: null };
+  }
 
   if (!accept) {
     await svc
       .from("requests")
       .update({ state: "declined", responded_at: new Date().toISOString() })
       .eq("id", requestId);
-    return null;
+    return { threadId: null };
   }
 
   const parties = await partiesFor(request.match_id);
-  if (!parties) return null;
+  if (!parties) return { threadId: null };
 
   const { data: existingThread } = await svc
     .from("threads")
@@ -448,7 +546,17 @@ export async function respondToRequest(
     .from("requests")
     .update({ state: "accepted", responded_at: new Date().toISOString() })
     .eq("id", requestId);
-  return threadId;
+
+  const { data: match } = await svc
+    .from("matches")
+    .select("demo:tracks!matches_demo_track_id_fkey(title)")
+    .eq("id", request.match_id)
+    .maybeSingle();
+  return {
+    threadId,
+    senderId: request.sender_id as string,
+    trackTitle: one<any>(match?.demo)?.title ?? "a track",
+  };
 }
 
 export async function passMatch(user: SessionUser, matchId: string): Promise<void> {
@@ -468,7 +576,7 @@ export async function getRequests(user: SessionUser): Promise<RequestView[]> {
        sender:profiles!requests_sender_id_fkey(${PROFILE_COLS}),
        recipient:profiles!requests_recipient_id_fkey(${PROFILE_COLS}),
        match:matches!requests_match_id_fkey(vocal_score, style_score, production_score, blended_score,
-         demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec))`
+         demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, peaks, storage_path))`
     )
     .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
     .order("created_at", { ascending: false });
@@ -504,8 +612,8 @@ export async function getRequests(user: SessionUser): Promise<RequestView[]> {
         // Always playable: you cannot judge a request you cannot hear.
         track: {
           title: demo.title,
-          seed: hashString(demo.id),
           durationSec: demo.duration_sec ?? 0,
+          audio: audioRef(demo.storage_path ? demo.id : null, demo.peaks, demo.id),
         },
       };
     })
@@ -602,16 +710,21 @@ export async function countUnread(user: SessionUser): Promise<number> {
   return (await getThreads(user)).filter((t) => t.unread).length;
 }
 
-export async function sendMessage(user: SessionUser, threadId: string, body: string): Promise<void> {
+export async function sendMessage(
+  user: SessionUser,
+  threadId: string,
+  body: string
+): Promise<{ otherPartyId: string } | null> {
   const svc = serviceClient();
   const { data: thread } = await svc
     .from("threads")
     .select("id, creator_id, talent_id")
     .eq("id", threadId)
     .maybeSingle();
-  if (!thread || (thread.creator_id !== user.id && thread.talent_id !== user.id)) return;
+  if (!thread || (thread.creator_id !== user.id && thread.talent_id !== user.id)) return null;
   await svc.from("messages").insert({ thread_id: threadId, sender_id: user.id, body });
   await markThreadRead(user, threadId);
+  return { otherPartyId: thread.creator_id === user.id ? thread.talent_id : thread.creator_id };
 }
 
 export async function markThreadRead(user: SessionUser, threadId: string): Promise<void> {
@@ -621,6 +734,48 @@ export async function markThreadRead(user: SessionUser, threadId: string): Promi
       { thread_id: threadId, profile_id: user.id, read_at: new Date().toISOString() },
       { onConflict: "thread_id,profile_id" }
     );
+}
+
+/* ---- notification targets ---------------------------------------------- */
+
+/**
+ * Where to email someone, or null if they've opted out or have no address.
+ * Email lives in auth.users, so it needs the admin API rather than a join.
+ */
+export async function notifyTarget(
+  profileId: string
+): Promise<{ email: string; displayName: string } | null> {
+  const svc = serviceClient();
+  const { data: profile } = await svc
+    .from("profiles")
+    .select("display_name, email_notifications")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (!profile || profile.email_notifications === false) return null;
+
+  const { data, error } = await svc.auth.admin.getUserById(profileId);
+  const email = data?.user?.email;
+  if (error || !email) return null;
+  return { email, displayName: profile.display_name };
+}
+
+export async function setEmailNotifications(
+  user: SessionUser,
+  enabled: boolean
+): Promise<void> {
+  await serviceClient()
+    .from("profiles")
+    .update({ email_notifications: enabled })
+    .eq("id", user.id);
+}
+
+export async function getEmailNotifications(user: SessionUser): Promise<boolean> {
+  const { data } = await serviceClient()
+    .from("profiles")
+    .select("email_notifications")
+    .eq("id", user.id)
+    .maybeSingle();
+  return data?.email_notifications !== false;
 }
 
 /* ---- profiles ---------------------------------------------------------- */
@@ -650,11 +805,11 @@ async function buildProfileView(profileId: string): Promise<ProfileView | null> 
 
   const { data: refs } = await svc
     .from("tracks")
-    .select("id, kind")
+    .select("id, kind, peaks, storage_path")
     .eq("owner_id", profileId)
     .in("kind", ["voice", "production"])
     .order("created_at", { ascending: false });
-  const first = (refs ?? [])[0];
+  const first = (refs ?? [])[0] as any;
 
   return {
     id: profile.id,
@@ -665,7 +820,9 @@ async function buildProfileView(profileId: string): Promise<ProfileView | null> 
     genres: profile.genres,
     craft: profile.craft,
     avatarSeed: profile.avatarSeed,
-    previewSeed: first ? hashString(first.id) : null,
+    preview: first
+      ? audioRef(first.storage_path ? first.id : null, first.peaks, first.id)
+      : null,
     referenceCount: (refs ?? []).length,
   };
 }
@@ -741,6 +898,33 @@ export async function getProfile(
     .limit(1)
     .maybeSingle();
   return match ? buildProfileView(profileId) : null;
+}
+
+/* ---- erasure ----------------------------------------------------------- */
+
+/**
+ * Right to erasure. Removes stored audio, then the profile — which cascades
+ * to tracks, fingerprints, matches, requests, threads and messages — then the
+ * auth user itself.
+ */
+export async function deleteAccount(user: SessionUser): Promise<void> {
+  const svc = serviceClient();
+
+  // Erasure has to be complete, so drain the folder a page at a time rather
+  // than trusting one listing to cover everything the account ever uploaded.
+  // Each pass deletes what it listed, so the next page is always the first.
+  for (let pass = 0; pass < 100; pass++) {
+    const { data: objects } = await svc.storage
+      .from(AUDIO_BUCKET)
+      .list(user.id, { limit: 100 });
+    if (!objects?.length) break;
+    await svc.storage
+      .from(AUDIO_BUCKET)
+      .remove(objects.map((o: any) => `${user.id}/${o.name}`));
+  }
+
+  await svc.from("profiles").delete().eq("id", user.id);
+  await svc.auth.admin.deleteUser(user.id);
 }
 
 /* ---- billing ---------------------------------------------------------- */

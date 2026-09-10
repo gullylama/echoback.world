@@ -4,6 +4,7 @@
 */
 
 import type {
+  AudioRef,
   FeedItemView,
   FeedQuery,
   MatchView,
@@ -17,6 +18,8 @@ import type {
   Tier,
   Track,
   TrackKind,
+  UploadMetadata,
+  UploadTicket,
 } from "@/lib/types";
 import {
   acceptRequest as storeAccept,
@@ -44,6 +47,11 @@ import {
 import { hashString, obscureName } from "@/lib/demo/seed";
 import { canInitiate, creatorCanReveal, hasActiveSub, talentView } from "./shared";
 
+/** Demo mode stores no files, so trackId stays null and the player synthesises. */
+function synthAudio(seed: number): AudioRef {
+  return { trackId: null, peaks: null, seed };
+}
+
 function summarise(request: DemoRequest | null, viewerId: string): RequestSummary | null {
   if (!request) return null;
   return {
@@ -66,13 +74,19 @@ export async function getTrack(user: SessionUser, trackId: string): Promise<Trac
   return t;
 }
 
-export async function createTrack(
+/** Demo mode stores nothing, so there is no slot to reserve. */
+export async function createUploadTicket(): Promise<UploadTicket | null> {
+  return null;
+}
+
+export async function finaliseUpload(
   user: SessionUser,
-  input: { title: string; kind: TrackKind; file?: File | null }
+  kind: TrackKind,
+  meta: UploadMetadata
 ): Promise<Track | null> {
   const u = db().users.get(user.id);
   if (!u) return null;
-  return createDemoTrack(u, input.title, input.kind);
+  return createDemoTrack(u, meta.title, kind);
 }
 
 export async function deleteTrack(user: SessionUser, trackId: string): Promise<void> {
@@ -101,7 +115,7 @@ function toMatchView(user: SessionUser, m: DemoMatch): MatchView {
     scores: m.scores,
     revealed,
     // The voice is audible before paying — reaching it is what costs.
-    previewSeed: previewSeedFor(m.talentProfileId),
+    preview: synthAudio(previewSeedFor(m.talentProfileId)),
     talent: talentView(revealed, talent, m.id),
     request: summarise(requestForMatch(m.id), user.id),
   };
@@ -142,17 +156,17 @@ function toFeedItem(user: SessionUser, m: DemoMatch): FeedItemView {
       ? {
           title: track.title,
           durationSec: track.durationSec,
-          seed: track.seed,
           creatorName: creator?.displayName ?? "Creator",
           genres: creator?.genres ?? [],
+          audio: synthAudio(track.seed),
         }
       : {
           title: obscureName(m.id + ":t"),
           durationSec: track.durationSec,
-          // decoy waveform only — unrevealed feed items are not playable
-          seed: hashString(m.id + ":shape"),
           creatorName: obscureName(m.id + ":c"),
           genres: creator?.genres ?? [],
+          // decoy shape only — an unpaid feed is not playable
+          audio: synthAudio(hashString(m.id + ":shape")),
         },
     request: summarise(requestForMatch(m.id), user.id),
   };
@@ -207,7 +221,15 @@ export async function sendRequest(
   user: SessionUser,
   matchId: string,
   note: string | null
-): Promise<{ ok: boolean; state?: string; threadId?: string | null; reason?: string }> {
+): Promise<{
+  ok: boolean;
+  state?: string;
+  threadId?: string | null;
+  reason?: string;
+  /** context for the notification email, when a new request was created */
+  recipientId?: string;
+  trackTitle?: string;
+}> {
   const parties = partiesFor(matchId);
   if (!parties) return { ok: false, reason: "not_found" };
   if (user.id !== parties.creatorId && user.id !== parties.talentId) {
@@ -227,10 +249,12 @@ export async function respondToRequest(
   user: SessionUser,
   requestId: string,
   accept: boolean
-): Promise<string | null> {
-  if (accept) return storeAccept(user.id, requestId);
-  storeDecline(user.id, requestId);
-  return null;
+): Promise<{ threadId: string | null; senderId?: string; trackTitle?: string }> {
+  if (!accept) {
+    storeDecline(user.id, requestId);
+    return { threadId: null };
+  }
+  return { threadId: storeAccept(user.id, requestId) };
 }
 
 export async function passMatch(user: SessionUser, matchId: string): Promise<void> {
@@ -265,7 +289,11 @@ function toRequestView(user: SessionUser, r: DemoRequest): RequestView | null {
       location: other.location,
     },
     // Always playable: you cannot judge a request you cannot hear.
-    track: { title: track.title, seed: track.seed, durationSec: track.durationSec },
+    track: {
+      title: track.title,
+      durationSec: track.durationSec,
+      audio: synthAudio(track.seed),
+    },
   };
 }
 
@@ -326,12 +354,30 @@ export async function countUnread(user: SessionUser): Promise<number> {
   return (await getThreads(user)).filter((t) => t.unread).length;
 }
 
-export async function sendMessage(user: SessionUser, threadId: string, body: string): Promise<void> {
+export async function sendMessage(
+  user: SessionUser,
+  threadId: string,
+  body: string
+): Promise<{ otherPartyId: string } | null> {
   storeSendMessage(user.id, threadId, body);
+  return null;
 }
 
 export async function markThreadRead(user: SessionUser, threadId: string): Promise<void> {
   storeMarkThreadRead(user.id, threadId);
+}
+
+/* ---- notification targets ---------------------------------------------- */
+
+/** Demo mode never sends email. */
+export async function notifyTarget(): Promise<{ email: string; displayName: string } | null> {
+  return null;
+}
+
+export async function setEmailNotifications(): Promise<void> {}
+
+export async function getEmailNotifications(): Promise<boolean> {
+  return true;
 }
 
 /* ---- profiles ---------------------------------------------------------- */
@@ -357,7 +403,7 @@ function buildProfileView(profileId: string): ProfileView | null {
     genres: profile.genres,
     craft: profile.craft,
     avatarSeed: profile.avatarSeed,
-    previewSeed: profile.role === "creator" ? null : previewSeedFor(profile.id),
+    preview: profile.role === "creator" ? null : synthAudio(previewSeedFor(profile.id)),
     referenceCount: refs.length,
   };
 }
@@ -402,6 +448,26 @@ export async function getProfile(
     if (track?.ownerId === profileId) return buildProfileView(profileId);
   }
   return null;
+}
+
+/* ---- erasure ----------------------------------------------------------- */
+
+export async function deleteAccount(user: SessionUser): Promise<void> {
+  const d = db();
+  for (const t of Array.from(d.tracks.values())) {
+    if (t.ownerId === user.id) d.tracks.delete(t.id);
+  }
+  for (const m of Array.from(d.matches.values())) {
+    if (m.talentProfileId === user.id) d.matches.delete(m.id);
+  }
+  for (const r of Array.from(d.requests.values())) {
+    if (r.senderId === user.id || r.recipientId === user.id) d.requests.delete(r.id);
+  }
+  for (const t of Array.from(d.threads.values())) {
+    if (t.participantIds.includes(user.id)) d.threads.delete(t.id);
+  }
+  d.profiles.delete(user.id);
+  d.users.delete(user.id);
 }
 
 /* ---- billing ---------------------------------------------------------- */

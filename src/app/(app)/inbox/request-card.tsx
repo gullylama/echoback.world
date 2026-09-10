@@ -63,7 +63,13 @@ export function RequestCard({ request }: { request: RequestView }) {
         {request.track.durationSec > 0 && (
           <p className="text-xs text-ink-faint">{fmtDuration(request.track.durationSec)}</p>
         )}
-        <TrackPlayer seed={request.track.seed} className="mt-2" height={30} barCount={48} />
+        <TrackPlayer
+          audio={request.track.audio}
+          label={request.track.title}
+          className="mt-2"
+          height={30}
+          barCount={48}
+        />
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">

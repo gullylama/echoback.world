@@ -18,6 +18,12 @@ interface FingerprintPayload {
   vocal: number[];
   style: number[];
   production: number[];
+  /** written by the worker so previews are a real clip, not a byte range */
+  previewPath?: string | null;
+  /** backfilled when the browser could not decode the file at upload */
+  durationSec?: number | null;
+  byteSize?: number | null;
+  peaks?: number[] | null;
 }
 
 export async function POST(req: Request) {
@@ -49,10 +55,26 @@ export async function POST(req: Request) {
   );
   if (fpError) return NextResponse.json({ error: fpError.message }, { status: 500 });
 
-  await supabase
+  // Only backfill what the browser could not measure — never overwrite it.
+  const { data: existing } = await supabase
     .from("tracks")
-    .update({ status: "fingerprinted" })
-    .eq("id", body.trackId);
+    .select("duration_sec, byte_size, peaks")
+    .eq("id", body.trackId)
+    .maybeSingle();
+
+  const update: Record<string, unknown> = { status: "fingerprinted" };
+  if (body.previewPath) update.preview_path = body.previewPath;
+  if (!existing?.duration_sec && body.durationSec) {
+    update.duration_sec = Math.round(body.durationSec);
+  }
+  if (!existing?.byte_size && body.byteSize) update.byte_size = body.byteSize;
+  if (!existing?.peaks?.length && body.peaks?.length) {
+    update.peaks = body.peaks
+      .slice(0, 400)
+      .map((p) => Math.max(0, Math.min(1000, Math.round(p))));
+  }
+
+  await supabase.from("tracks").update(update).eq("id", body.trackId);
 
   // Recompute cached matches for this track (both directions).
   const { error: matchError } = await supabase.rpc("refresh_matches_for_track", {
