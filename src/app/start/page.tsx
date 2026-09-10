@@ -4,6 +4,7 @@ import { SiteFooter, SiteNav } from "@/components/site-chrome";
 import {
   completeProfileAction,
   googleSignInAction,
+  requestPasswordResetAction,
   resendConfirmationAction,
   signInAction,
   signUpAction,
@@ -47,11 +48,12 @@ export default async function StartPage({
     error?: string;
     check_email?: string;
     resent?: string;
+    sent_reset?: string;
   }>;
 }) {
   const auth = await getAuthState();
   if (auth.kind === "authed") redirect("/studio");
-  const { role, mode, error, check_email, resent } = await searchParams;
+  const { role, mode, error, check_email, resent, sent_reset } = await searchParams;
 
   return (
     <>
@@ -60,7 +62,9 @@ export default async function StartPage({
         {error && (
           <div className="mb-8 rounded-xl border border-rose-deep/40 bg-paper-raised px-4 py-3">
             <p className="text-sm text-rose-deep">{error}</p>
-            {!demoMode && /expired|incomplete/i.test(error) && (
+            {/* On the forgot screen the form below already is the way to ask
+                for a new link — don't offer a confirmation resend as well. */}
+            {!demoMode && mode !== "forgot" && /expired|incomplete/i.test(error) && (
               <form action={resendConfirmationAction} className="mt-3 flex flex-wrap gap-2">
                 <input
                   name="email"
@@ -78,8 +82,12 @@ export default async function StartPage({
         )}
         {auth.kind === "needs_profile" ? (
           <Onboarding email={auth.email} suggestedName={auth.suggestedName} role={role} />
+        ) : sent_reset ? (
+          <ResetSent email={sent_reset} />
         ) : check_email ? (
           <CheckEmail email={check_email} resent={Boolean(resent)} />
+        ) : mode === "forgot" ? (
+          <Forgot />
         ) : mode === "signin" ? (
           <SignIn />
         ) : (
@@ -228,8 +236,22 @@ function SignIn() {
               <input name="email" type="email" required placeholder="you@example.com" className={inputCls} />
             </label>
             <label className="flex flex-col gap-2">
-              <span className="label text-ink-faint">Password</span>
-              <input name="password" type="password" required className={inputCls} />
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="label text-ink-faint">Password</span>
+                <Link
+                  href="/start?mode=forgot"
+                  className="text-xs text-ink-faint underline underline-offset-4 transition hover:text-ink"
+                >
+                  Forgot it?
+                </Link>
+              </div>
+              <input
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                className={inputCls}
+              />
             </label>
             <button
               type="submit"
@@ -315,6 +337,75 @@ function Onboarding({
           </button>
         </form>
       )}
+    </div>
+  );
+}
+
+/* ---- password reset ---------------------------------------------------- */
+
+function Forgot() {
+  return (
+    <div className="mx-auto max-w-md">
+      <p className="label text-ink-faint">Locked out</p>
+      <h1 className="font-serif-display mt-4 text-3xl sm:text-[2.6rem]">
+        Reset your password
+      </h1>
+      <p className="mt-4 text-sm leading-relaxed text-ink-soft">
+        Enter the address you signed up with and we&rsquo;ll send you a link to
+        set a new one.
+      </p>
+      {demoMode ? (
+        <p className="mt-6 text-sm leading-relaxed text-ink-soft">
+          Demo mode has no stored accounts, so there is no password to reset —{" "}
+          <Link href="/start" className="text-ink underline underline-offset-4">
+            create a session
+          </Link>{" "}
+          instead.
+        </p>
+      ) : (
+      <form action={requestPasswordResetAction} className="mt-8 flex flex-col gap-4">
+        <label className="flex flex-col gap-2">
+          <span className="label text-ink-faint">Email</span>
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="you@example.com"
+            className={inputCls}
+          />
+        </label>
+        <button
+          type="submit"
+          className="mt-2 rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper transition hover:bg-ink-soft"
+        >
+          Send the link
+        </button>
+      </form>
+      )}
+      <p className="mt-6 text-xs text-ink-faint">
+        Remembered it?{" "}
+        <Link href="/start?mode=signin" className="text-ink underline underline-offset-4">
+          Sign in
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+function ResetSent({ email }: { email: string }) {
+  return (
+    <div className="mx-auto max-w-md text-center">
+      <p className="label text-ink-faint">Check your inbox</p>
+      <h1 className="font-serif-display mt-4 text-3xl">On its way</h1>
+      <p className="mt-4 text-sm leading-relaxed text-ink-soft">
+        If <strong className="text-ink">{email}</strong> has an EchoBack account,
+        a reset link is on its way. It may take a minute, and it may be in spam.
+      </p>
+      <p className="mt-6 text-xs text-ink-faint">
+        <Link href="/start?mode=signin" className="text-ink underline underline-offset-4">
+          Back to sign in
+        </Link>
+      </p>
     </div>
   );
 }

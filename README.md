@@ -145,14 +145,26 @@ browser that started the sign-up — links opened on a phone after signing up
 on a laptop fail. Point the **Confirm signup** template at the token-hash
 flow instead, which works anywhere:
 
+**Confirm signup:**
+
 ```html
 <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">
   Confirm your email
 </a>
 ```
 
+**Reset password** — same flow, but it must land on `/reset`, which is where
+the new password is chosen:
+
+```html
+<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/reset">
+  Set a new password
+</a>
+```
+
 `/auth/callback` accepts both flows plus Supabase's error redirects, and
-sends expired or reused links to a page offering a fresh one.
+sends expired or reused links to a page offering a fresh one. `next` is
+checked against off-site redirects before it is followed.
 
 ### Who can hear what
 

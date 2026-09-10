@@ -11,6 +11,14 @@ export const metadata: Metadata = {
     "EchoBack connects AI-made music with the real artists and producers whose sound it echoes. AI writes the part; a human gets cast in it.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg" },
+  openGraph: {
+    type: "website",
+    siteName: "EchoBack",
+    title: "EchoBack — your AI music already sounds like someone",
+    description:
+      "EchoBack connects AI-made music with the real artists and producers whose sound it echoes. AI writes the part; a human gets cast in it.",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

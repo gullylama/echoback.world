@@ -99,6 +99,58 @@ export async function resendConfirmationAction(formData: FormData) {
   redirect(`/start?check_email=${encodeURIComponent(email)}&resent=1`);
 }
 
+/* ---- password reset ---------------------------------------------------
+   Two halves: ask for a link (unauthenticated), then set the new password
+   (authenticated by the recovery session verifyOtp opened in the callback). */
+
+export async function requestPasswordResetAction(formData: FormData) {
+  if (!supabaseConfigured) redirect("/start");
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) startError("Enter the email you signed up with.", "forgot");
+
+  const { supabaseServer } = await import("@/lib/supabase/server");
+  const supabase = await supabaseServer();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${SITE}/auth/callback?next=/reset`,
+  });
+
+  // Never say whether the address is registered — that turns this form into
+  // a way to test whether someone has an account here. The only error worth
+  // surfacing is being asked to slow down.
+  if (error && /security purposes|rate|seconds/i.test(error.message)) {
+    startError("Just a moment — you can request another email in about a minute.", "forgot");
+  }
+  redirect(`/start?sent_reset=${encodeURIComponent(email)}`);
+}
+
+export async function updatePasswordAction(formData: FormData) {
+  if (!supabaseConfigured) redirect("/start");
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (password.length < 8) {
+    redirect("/reset?error=" + encodeURIComponent("Use at least 8 characters."));
+  }
+  if (password !== confirm) {
+    redirect("/reset?error=" + encodeURIComponent("Those two passwords don't match."));
+  }
+
+  const { supabaseServer } = await import("@/lib/supabase/server");
+  const supabase = await supabaseServer();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    redirect(
+      "/reset?error=" +
+        encodeURIComponent(
+          /session|jwt|token/i.test(error.message)
+            ? "That reset link has expired. Request a new one."
+            : error.message
+        )
+    );
+  }
+  redirect("/account?password=changed");
+}
+
 export async function googleSignInAction() {
   if (!supabaseConfigured) redirect("/start");
   const { supabaseServer } = await import("@/lib/supabase/server");

@@ -21,11 +21,11 @@ const inputCls =
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; delete_error?: string }>;
+  searchParams: Promise<{ saved?: string; delete_error?: string; password?: string }>;
 }) {
   const user = await currentUser();
   if (!user) redirect("/start");
-  const [profile, emailsOn, { saved, delete_error }] = await Promise.all([
+  const [profile, emailsOn, { saved, delete_error, password }] = await Promise.all([
     getOwnProfile(user),
     getEmailNotifications(user),
     searchParams,
@@ -44,6 +44,13 @@ export default async function AccountPage({
       {saved && (
         <p className="mt-6 rounded-xl border border-hairline bg-paper-raised px-4 py-3 text-sm text-ink-soft">
           Profile saved.
+        </p>
+      )}
+
+      {password === "changed" && (
+        <p className="mt-6 rounded-xl border border-hairline bg-paper-raised px-4 py-3 text-sm text-ink-soft">
+          Password updated. You&rsquo;re signed in on this device; anywhere else will
+          need the new one.
         </p>
       )}
 
