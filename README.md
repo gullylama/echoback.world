@@ -145,45 +145,47 @@ browser that started the sign-up — links opened on a phone after signing up
 on a laptop fail. Point the **Confirm signup** template at the token-hash
 flow instead, which works anywhere:
 
-**Confirm signup:**
+The ready-made bodies live in `supabase/email-templates/` — paste each file's
+contents into the matching template in the dashboard:
 
-```html
-<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">
-  Confirm your email
-</a>
-```
+| Supabase template | File | Subject |
+| ----------------- | ---- | ------- |
+| Confirm signup  | `supabase/email-templates/confirm-signup.html` | Confirm your email |
+| Reset Password  | `supabase/email-templates/reset-password.html` | Reset your password |
 
-**Reset password** — same flow, but it must land on `/reset`, which is where
-the new password is chosen:
+They are the same design as the app's own notification email
+(`src/lib/email.ts`) — table layout, inline styles, no web fonts, no images
+and no gradient, so nothing depends on remote loading or on the recipient
+clicking "show images". A confirmation and a notification should not look
+like they came from two different companies.
 
-```html
-<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/reset">
-  Set a new password
-</a>
-```
+Both carry the link twice: as a button and as pasteable plain text, because
+a fair number of clients mangle one or the other.
 
+The templates say the link expires in 24 hours, which matches Supabase's
+default. If you change **Authentication → Providers → Email → Email OTP
+Expiration**, change the wording in both files to match.
+
+Both use `token_hash` rather than the default `{{ .ConfirmationURL }}`.
+Supabase's default is a PKCE `code`, which can only be exchanged in the
+browser that started the request — so signing up on a laptop and opening the
+link on a phone fails. The token-hash form works from any device.
 `/auth/callback` accepts both flows plus Supabase's error redirects, and
-sends expired or reused links to a page offering a fresh one. `next` is
-checked against off-site redirects before it is followed.
+sends expired or reused links to a page offering a fresh one.
 
-### Who can hear what
+The reset link carries `next=/reset`, so add a wildcard to **Authentication →
+URL Configuration → Redirect URLs**:
 
-Audio is never handed out as a storage URL. Playback goes through
-`GET /api/audio/[trackId]`, which re-resolves authorisation on every hit
-(`src/lib/audio-access.ts`), so a cancelled subscription or a declined
-request takes effect at once rather than whenever a signed link expires.
+```
+https://echoback.world/auth/callback**
+```
 
-| Relationship                              | Access                       |
-| ----------------------------------------- | ---------------------------- |
-| Your own upload                            | full, with byte-range seeking |
-| A request or conversation, either direction | full — you cannot judge what you cannot hear, and answering is free |
-| Matched only                               | 30-second preview            |
-| No relationship                            | 403                          |
+Without it Supabase can reject the redirect once the query string is
+attached, and the reset dies at the last step. `next` is checked against
+off-site redirects before it is followed.
 
-Previews are served as a plain `200` of the opening slice with **no**
-`Accept-Ranges`, and the route truncates the stream itself rather than
-trusting storage to honour the range — so the rest of the file cannot be
-asked for. The blur in the UI is presentation; this is the boundary.
+The other templates (Magic Link, Invite, Change Email) are unused — the app
+never triggers them.
 
 ### Proving the pipeline before the worker exists
 
