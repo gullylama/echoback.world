@@ -24,7 +24,7 @@ export default function Error({
   return (
     <main className="grid min-h-dvh place-items-center px-6">
       <div className="max-w-sm text-center">
-        <LogoMark size={40} />
+        <LogoMark size={34} />
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">That didn&rsquo;t come back</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
           Something broke on our side. Nothing you did caused it, and nothing you

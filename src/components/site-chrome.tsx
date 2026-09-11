@@ -90,7 +90,7 @@ export function SiteFooter() {
           <p className="text-xs text-ink-faint">
             © {new Date().getFullYear()} EchoBack — echoback.world
           </p>
-          <LogoMark size={22} className="text-ink-faint/60" />
+          <LogoMark size={18} className="text-ink-faint/60" />
         </div>
       </div>
     </footer>
