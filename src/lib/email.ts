@@ -60,10 +60,14 @@ function layout(opts: {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
 
 <tr><td align="left" style="padding:0 4px 20px;">
-<span style="font-family:${SANS};font-size:17px;font-weight:700;letter-spacing:-0.02em;color:#141719;">echo</span><span style="font-family:${SANS};font-size:17px;font-weight:700;letter-spacing:-0.02em;color:#82908e;">back</span>
+<span style="font-family:${SANS};font-size:17px;font-weight:700;letter-spacing:-0.02em;color:#141719;">echo</span><span style="font-family:${SANS};font-size:17px;font-weight:700;letter-spacing:-0.02em;color:#6b4fb8;">back</span>
 </td></tr>
 
 <tr><td bgcolor="#f7faf9" style="background-color:#f7faf9;border:1px solid #d5dedc;border-radius:16px;padding:36px 34px;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+<tr><td width="46" height="3" bgcolor="#ab95e8" style="background-color:#ab95e8;border-radius:999px;line-height:3px;font-size:0;">&nbsp;</td></tr>
+</table>
 
 <h1 style="margin:0 0 14px;font-family:${SANS};font-size:23px;line-height:1.3;font-weight:600;letter-spacing:-0.02em;color:#141719;">${opts.heading}</h1>
 
@@ -79,7 +83,10 @@ ${opts.footnote
   ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;">
 <tr><td height="1" bgcolor="#e3eae8" style="background-color:#e3eae8;line-height:1px;font-size:0;">&nbsp;</td></tr>
 </table>
-<p style="margin:20px 0 0;font-family:${SANS};font-size:13px;line-height:1.65;color:#82908e;">${opts.footnote}</p>`
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+<tr><td bgcolor="#f2eefc" style="background-color:#f2eefc;border-radius:10px;padding:14px 16px;">
+<p style="margin:0;font-family:${SANS};font-size:13px;line-height:1.65;color:#46504f;">${opts.footnote}</p>
+</td></tr></table>`
   : ""}
 
 </td></tr>

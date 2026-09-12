@@ -4,9 +4,16 @@
   EchoBack design system
   ----------------------
   Concept: echolocation. Send an echo, feel it return, connect.
-  Base: warm editorial grey/white, near-black ink, hairline rules.
-  The lilac→rose gradient is reserved for one thing only: audio —
-  waveforms, pulses, similarity. Everything else stays quiet (ma 間).
+  Base: mineral-water white, near-black ink, hairline rules.
+
+  Purple carries the life in this product — the echo itself. It marks the
+  mark, the "back" in the wordmark (black resolving into colour: the AI
+  handing off to a human), and the line of copy that asks something of you.
+  Used as SOLID colour, always.
+
+  The lilac→rose GRADIENT stays reserved for one thing: audio — waveforms,
+  pulses, similarity. Solid purple = life. Gradient = sound. Everything
+  else stays quiet.
 */
 
 @theme {
@@ -21,6 +28,10 @@
   --color-ink-faint: #82908e;
   --color-lilac: #ab95e8;
   --color-lilac-deep: #7d63c9;
+  /* Purple that is safe on paper at body size — 5.4:1. Use this for any
+     purple TEXT below display size; lilac-deep is 4.1:1 and only clears
+     the bar for large type. */
+  --color-lilac-ink: #6b4fb8;
   --color-rose: #eba0b6;
   --color-rose-deep: #d9718f;
   --color-indigo: #34315c;
@@ -160,6 +171,113 @@ body {
   pointer-events: none;
   opacity: 0.05;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>");
+}
+
+/* ---- echo field ------------------------------------------------------
+   Bells rising toward a frosted surface. The surface is a real backdrop
+   filter, so what passes behind it genuinely diffuses instead of being
+   faked with a painted gradient. The field itself has no edges — it
+   dissolves into the page, so it reads as a window rather than a tile. */
+
+.echo-field {
+  /* belt and braces with the SVG vignette: the field must dissolve into
+     the page, never sit on it as a tile. Fully transparent well before
+     the frame, or the container's own rectangle shows. */
+  mask-image: radial-gradient(108% 92% at 50% 38%, #000 30%, rgba(0, 0, 0, 0.45) 58%, transparent 78%);
+  -webkit-mask-image: radial-gradient(108% 92% at 50% 38%, #000 30%, rgba(0, 0, 0, 0.45) 58%, transparent 78%);
+}
+
+/*
+  The surface. Deliberately NOT a backdrop-filter: the only thing behind
+  this is the field's own light, and frosting the page instead paints a
+  visible rectangle. The diffusion is already in the SVG blurs, so the
+  surface only supplies the pale lit body of the glass — and it is masked
+  to a bloom-shaped pool, not a band, for the same reason.
+*/
+.echo-surface {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 52%;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-paper-raised) 52%, transparent),
+    color-mix(in oklab, var(--color-paper-raised) 18%, transparent) 58%,
+    transparent
+  );
+  mask-image: radial-gradient(72% 120% at 50% 12%, #000 28%, transparent 72%);
+  -webkit-mask-image: radial-gradient(72% 120% at 50% 12%, #000 28%, transparent 72%);
+}
+
+/*
+  Ambient: no surface, and the water is pushed outward so the light reads
+  as a halo AROUND whatever sits on top. Centred blooms would simply be
+  hidden behind the card they are meant to surround.
+*/
+.echo-field--ambient {
+  /* Sized well under the box: a gradient sized to 100% still reaches the
+     edges fully opaque, which draws the rectangle back in. */
+  mask-image: radial-gradient(58% 58% at 50% 50%, #000 22%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+  -webkit-mask-image: radial-gradient(58% 58% at 50% 50%, #000 22%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+}
+
+.echo-field--ambient svg {
+  transform: scale(1.35);
+  transform-origin: center;
+}
+
+.echo-field--ambient::after {
+  display: none;
+}
+
+/* the meniscus — where the echo meets the surface, brightest at centre */
+.echo-field::after {
+  content: "";
+  position: absolute;
+  left: 26%;
+  right: 26%;
+  top: 47%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--color-lilac) 62%, transparent) 50%,
+    transparent
+  );
+  opacity: 0.5;
+}
+
+.echo-bloom {
+  animation-name: echo-swell;
+  animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  animation-iteration-count: infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+  will-change: transform;
+}
+
+@keyframes echo-swell {
+  0%,
+  100% {
+    transform: translateY(1.4%) scale(0.975);
+  }
+  50% {
+    transform: translateY(-1.8%) scale(1.03);
+  }
+}
+
+.echo-caustic {
+  animation: echo-caustic-drift 28s ease-in-out infinite alternate;
+}
+
+@keyframes echo-caustic-drift {
+  from {
+    transform: translate3d(-3%, 0, 0) scaleY(1);
+  }
+  to {
+    transform: translate3d(3%, 1.5%, 0) scaleY(1.14);
+  }
 }
 
 .font-serif-display {

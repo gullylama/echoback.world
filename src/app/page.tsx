@@ -36,7 +36,7 @@ function Hero() {
           <p className="label text-ink-faint">Echolocation for music</p>
           <h1 className="mt-5 max-w-xl text-[2.6rem] font-semibold leading-[1.04] tracking-tight sm:text-6xl">
             Your AI music already sounds like someone.
-            <span className="mt-3 block text-ink-faint">Find them.</span>
+            <span className="mt-3 block text-lilac-deep">Find them.</span>
           </h1>
           <p className="mt-7 max-w-md text-lg leading-relaxed text-ink-soft">
             EchoBack connects AI-made music with the real artists and producers whose
@@ -69,12 +69,12 @@ function Hero() {
 
         <div className="relative mx-auto w-full max-w-md animate-rise" style={{ animationDelay: "0.12s" }}>
           <EchoField
-            className="aspect-square w-full"
+            className="relative aspect-square w-full"
             words={[
-              { text: "I", x: 50, y: 9, size: 2.3 },
-              { text: "sound", x: 41, y: 36, size: 2.5 },
-              { text: "like", x: 26.5, y: 55, fade: 0.5, size: 2.1 },
-              { text: "you.", x: 55, y: 71, fade: 0.34, blur: 1.1, size: 2.1 },
+              { text: "I", x: 47, y: 13, size: 2.4 },
+              { text: "sound", x: 38, y: 33, size: 2.6 },
+              { text: "like", x: 47, y: 52, fade: 0.62, size: 2.2 },
+              { text: "you.", x: 40, y: 69, fade: 0.34, blur: 1.2, size: 2.2 },
             ]}
           />
         </div>
@@ -104,7 +104,7 @@ function TheReturn() {
           </p>
         </div>
         <div className="relative mx-auto w-full max-w-md">
-          <EchoField className="absolute -inset-10 opacity-35" />
+          <EchoField variant="ambient" className="absolute -inset-20 opacity-75" />
           <div className="relative rounded-2xl border border-hairline bg-paper-raised/85 p-6 shadow-[0_24px_60px_-36px_rgba(35,33,69,0.45)] backdrop-blur-md">
             <div className="flex items-center justify-between">
               <span className="label text-ink-faint">Match returned</span>

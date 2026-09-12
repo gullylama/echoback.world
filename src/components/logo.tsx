@@ -33,10 +33,14 @@ export function LogoMark({ size = 21, className = "" }: { size?: number; classNa
   );
 }
 
+/*
+  "echo" in ink, "back" in purple: the hand-off the whole product is about,
+  said in two syllables. Purple is the life returning.
+*/
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`font-semibold tracking-tight ${className}`}>
-      echo<span className="text-ink-faint">back</span>
+      echo<span className="text-lilac-ink">back</span>
     </span>
   );
 }
@@ -44,7 +48,7 @@ export function Wordmark({ className = "" }: { className?: string }) {
 export function Logo({ size = 21 }: { size?: number }) {
   return (
     <span className="inline-flex items-center gap-2.5">
-      <LogoMark size={size} />
+      <LogoMark size={size} className="text-lilac-deep" />
       <Wordmark className="text-[1.05rem]" />
     </span>
   );

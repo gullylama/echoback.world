@@ -140,7 +140,7 @@ function LockedFeed({
       </h1>
 
       <div className="relative mx-auto mt-12 h-64 w-64">
-        <EchoField className="absolute -inset-20 opacity-30" />
+        <EchoField variant="ambient" className="absolute -inset-20 opacity-55" />
         {[0, 1, 2].map((i) => (
           <div
             key={i}
