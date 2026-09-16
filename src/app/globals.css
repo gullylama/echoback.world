@@ -174,109 +174,59 @@ body {
 }
 
 /* ---- echo field ------------------------------------------------------
-   Bells rising toward a frosted surface. The surface is a real backdrop
-   filter, so what passes behind it genuinely diffuses instead of being
-   faked with a painted gradient. The field itself has no edges — it
-   dissolves into the page, so it reads as a window rather than a tile. */
+   The ping through the ink: rings opening outward and dying away.
+   Flattened so they read as ripples crossing a surface rather than
+   circles drawn on a page, and blurred so they belong to the same
+   frosted world as the ink-forms they travel through. */
 
-.echo-field {
-  /* belt and braces with the SVG vignette: the field must dissolve into
-     the page, never sit on it as a tile. Fully transparent well before
-     the frame, or the container's own rectangle shows. */
-  mask-image: radial-gradient(108% 92% at 50% 38%, #000 30%, rgba(0, 0, 0, 0.45) 58%, transparent 78%);
-  -webkit-mask-image: radial-gradient(108% 92% at 50% 38%, #000 30%, rgba(0, 0, 0, 0.45) 58%, transparent 78%);
+.echo-ping {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 108%;
+  height: 66%;
+  translate: -50% -50%;
+  border-radius: 50%;
+  /* Deep enough to hold against the ink it crosses. A paler ring reads as
+     a smudge; this one reads as a wavefront. */
+  border: 2px solid color-mix(in oklab, var(--color-lilac-ink) 75%, transparent);
+  filter: blur(0.8px);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: echo-ping 10.5s linear infinite;
+}
+
+/* alternating weight gives the train a beat rather than a smooth gradient */
+.echo-ping:nth-child(even) {
+  border-width: 1.2px;
+  border-color: color-mix(in oklab, var(--color-lilac-deep) 70%, transparent);
+  filter: blur(1.4px);
 }
 
 /*
-  The surface. Deliberately NOT a backdrop-filter: the only thing behind
-  this is the field's own light, and frosting the page instead paints a
-  visible rectangle. The diffusion is already in the SVG blurs, so the
-  surface only supplies the pale lit body of the glass — and it is masked
-  to a bloom-shaped pool, not a band, for the same reason.
+  Crisp rings against soft ink is the point: the signal stays legible,
+  the medium it travels through does not. The hold through the middle of
+  the flight is deliberate — fading them early leaves one visible ring,
+  which reads as a circle rather than as sound.
 */
-.echo-surface {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 52%;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in oklab, var(--color-paper-raised) 52%, transparent),
-    color-mix(in oklab, var(--color-paper-raised) 18%, transparent) 58%,
-    transparent
-  );
-  mask-image: radial-gradient(72% 120% at 50% 12%, #000 28%, transparent 72%);
-  -webkit-mask-image: radial-gradient(72% 120% at 50% 12%, #000 28%, transparent 72%);
-}
-
-/*
-  Ambient: no surface, and the water is pushed outward so the light reads
-  as a halo AROUND whatever sits on top. Centred blooms would simply be
-  hidden behind the card they are meant to surround.
-*/
-.echo-field--ambient {
-  /* Sized well under the box: a gradient sized to 100% still reaches the
-     edges fully opaque, which draws the rectangle back in. */
-  mask-image: radial-gradient(58% 58% at 50% 50%, #000 22%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
-  -webkit-mask-image: radial-gradient(58% 58% at 50% 50%, #000 22%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
-}
-
-.echo-field--ambient svg {
-  transform: scale(1.35);
-  transform-origin: center;
-}
-
-.echo-field--ambient::after {
-  display: none;
-}
-
-/* the meniscus — where the echo meets the surface, brightest at centre */
-.echo-field::after {
-  content: "";
-  position: absolute;
-  left: 26%;
-  right: 26%;
-  top: 47%;
-  height: 1px;
-  pointer-events: none;
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in oklab, var(--color-lilac) 62%, transparent) 50%,
-    transparent
-  );
-  opacity: 0.5;
-}
-
-.echo-bloom {
-  animation-name: echo-swell;
-  animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  animation-iteration-count: infinite;
-  transform-origin: center;
-  transform-box: fill-box;
-  will-change: transform;
-}
-
-@keyframes echo-swell {
-  0%,
+@keyframes echo-ping {
+  0% {
+    transform: scale(0.06);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0.62;
+  }
+  92% {
+    opacity: 0.14;
+  }
   100% {
-    transform: translateY(1.4%) scale(0.975);
-  }
-  50% {
-    transform: translateY(-1.8%) scale(1.03);
-  }
-}
-
-.echo-caustic {
-  animation: echo-caustic-drift 28s ease-in-out infinite alternate;
-}
-
-@keyframes echo-caustic-drift {
-  from {
-    transform: translate3d(-3%, 0, 0) scaleY(1);
-  }
-  to {
-    transform: translate3d(3%, 1.5%, 0) scaleY(1.14);
+    transform: scale(1);
+    opacity: 0;
   }
 }
 

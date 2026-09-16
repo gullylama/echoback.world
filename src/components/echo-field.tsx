@@ -1,21 +1,23 @@
 /*
-  Echo field — the brand's core image.
+  Echo field — the brand's core image: sound as soft organic ink-forms,
+  with sharp words surfacing from the blur. The contrast of focus and
+  blur *is* the product (matches stay blurred until revealed).
 
-  An echo rising through water to a frosted surface. Everything here is
-  light rather than line: the forms are blurred blooms, never outlines, so
-  it reads as something seen through frosted glass rather than a diagram
-  of a jellyfish. Structure is only just discernible — three nested arcs,
-  the mark's own shape — which is what makes it register as sound and as
-  marine life at once.
-
-  Depth is the grammar. Deep forms are small, cold and heavily diffused;
-  as they rise they widen, warm toward purple, and sharpen a little. At the
-  top they bloom against the surface, and that is where the words come
-  through clear.
-
-  Purple is used solid, as life. The lilac-to-rose gradient stays reserved
-  for audio itself.
+  Through the ink, a ping: rings opening outward and dying away, the same
+  expanding-ring language as EchoPulse. They are flattened, so they read as
+  ripples crossing a surface rather than circles on a page — sound moving
+  through the cloud, not decoration laid on top of it.
 */
+
+interface Blob {
+  x: number; // % of container
+  y: number;
+  w: number; // % width
+  h: number;
+  c: string;
+  o: number; // opacity
+  drift?: boolean;
+}
 
 export interface EchoWord {
   text: string;
@@ -27,225 +29,83 @@ export interface EchoWord {
   size?: number; // rem
 }
 
-const LILAC = "#ab95e8";
-const LILAC_DEEP = "#7d63c9";
-const INDIGO = "#34315c";
-const COOL = "#6f6aa8";
-
-interface Bloom {
-  x: number;
-  y: number;
-  r: number;
-  /** 0 = deep and cold, 1 = surfaced and warm */
-  depth: number;
-  /** which blur band it sits in */
-  band: 0 | 1 | 2;
-  drift?: number;
-  delay?: number;
-}
+const INK = "var(--color-indigo)";
+const INK_DEEP = "var(--color-indigo-deep)";
+const INK_SOFT = "#4b4880";
 
 /*
-  Hand-placed. A generated arrangement reads as noise; the eye wants a
-  path through it — one dominant bloom just under the surface, a couple
-  answering it, and smaller ones falling away into the dark.
+  One connected ink-cloud with a meandering light channel through it —
+  the words surface in the channel, the way sound finds its way through.
 */
-const BLOOMS: Bloom[] = [
-  { x: 52, y: 34, r: 26, depth: 1, band: 0, drift: 19, delay: 0 },
-  { x: 23, y: 47, r: 17, depth: 0.72, band: 1, drift: 23, delay: -7 },
-  { x: 78, y: 44, r: 14, depth: 0.62, band: 1, drift: 21, delay: -13 },
-  { x: 41, y: 66, r: 11, depth: 0.36, band: 2, drift: 27, delay: -4 },
-  { x: 69, y: 74, r: 9, depth: 0.26, band: 2, drift: 29, delay: -17 },
-  { x: 15, y: 76, r: 7.5, depth: 0.18, band: 2, drift: 31, delay: -10 },
+const DEFAULT_BLOBS: Blob[] = [
+  /* connective haze — makes the cores read as one organic mass */
+  { x: 12, y: 8, w: 66, h: 52, c: INK_SOFT, o: 0.3 },
+  { x: 8, y: 36, w: 72, h: 50, c: INK_SOFT, o: 0.28 },
+  { x: 24, y: 20, w: 56, h: 58, c: INK, o: 0.18 },
+  /* cores */
+  { x: 30, y: 7, w: 18, h: 13, c: INK, o: 0.85 },
+  { x: 55, y: 9, w: 22, h: 14, c: INK_DEEP, o: 0.9, drift: true },
+  { x: 18, y: 18, w: 36, h: 17, c: INK_DEEP, o: 0.95 },
+  { x: 60, y: 21, w: 24, h: 15, c: INK, o: 0.85 },
+  { x: 8, y: 32, w: 28, h: 16, c: INK, o: 0.85 },
+  { x: 64, y: 35, w: 22, h: 14, c: INK_SOFT, o: 0.7, drift: true },
+  { x: 18, y: 44, w: 32, h: 17, c: INK_DEEP, o: 0.95 },
+  { x: 50, y: 47, w: 28, h: 16, c: INK, o: 0.9 },
+  { x: 6, y: 55, w: 20, h: 13, c: INK_SOFT, o: 0.6 },
+  { x: 36, y: 61, w: 28, h: 16, c: INK_DEEP, o: 0.9, drift: true },
+  { x: 64, y: 59, w: 18, h: 12, c: INK, o: 0.75 },
+  { x: 26, y: 74, w: 26, h: 13, c: INK, o: 0.8 },
+  /* the audio hint — one warm breath of the gradient inside the ink */
+  { x: 48, y: 30, w: 16, h: 11, c: "var(--color-lilac-deep)", o: 0.35 },
+  { x: 52, y: 66, w: 16, h: 10, c: "var(--color-rose-deep)", o: 0.28 },
 ];
 
-function tint(depth: number): string {
-  if (depth > 0.85) return LILAC_DEEP;
-  if (depth > 0.55) return LILAC;
-  if (depth > 0.3) return COOL;
-  return INDIGO;
-}
-
-/** A bloom: a lit dome, the mark's three arcs barely showing, soft trails. */
-function Bloom({ b, i }: { b: Bloom; i: number }) {
-  const c = tint(b.depth);
-  const rings = [1, 0.68, 0.54].map((k) => b.r * k);
-  const drops = [0, b.r * 0.17, b.r * 0.3];
-  const reach = b.r * (1.1 + b.depth * 0.7);
-
-  const trails = [-0.6, -0.24, 0.18, 0.56].map((t, n) => {
-    const fx = b.x + b.r * t;
-    const fy = b.y + b.r * 0.5;
-    const sway = b.r * 0.26 * (n % 2 === 0 ? 1 : -1);
-    return `M${fx.toFixed(1)} ${fy.toFixed(1)} C${(fx + sway).toFixed(1)} ${(fy + reach * 0.38).toFixed(1)} ${(fx - sway).toFixed(1)} ${(fy + reach * 0.7).toFixed(1)} ${(fx + sway * 0.3).toFixed(1)} ${(fy + reach).toFixed(1)}`;
-  });
-
-  return (
-    <g
-      className={b.drift ? "echo-bloom" : undefined}
-      style={
-        b.drift
-          ? { animationDuration: `${b.drift}s`, animationDelay: `${b.delay ?? 0}s` }
-          : undefined
-      }
-    >
-      {/* the light of the thing — this is what you actually read */}
-      <ellipse
-        cx={b.x}
-        cy={b.y + b.r * 0.3}
-        rx={b.r * 1.15}
-        ry={b.r * 0.8}
-        fill={`url(#eb-glow-${i})`}
-      />
-
-      {trails.map((d, n) => (
-        <path
-          key={n}
-          d={d}
-          fill="none"
-          stroke={c}
-          strokeWidth={b.r * 0.05}
-          strokeLinecap="round"
-          opacity={0.1 + b.depth * 0.14}
-        />
-      ))}
-
-      {rings.map((rr, n) => (
-        <path
-          key={n}
-          d={`M${(b.x - rr).toFixed(1)} ${(b.y + drops[n]).toFixed(1)} A ${rr.toFixed(1)} ${rr.toFixed(1)} 0 0 1 ${(b.x + rr).toFixed(1)} ${(b.y + drops[n]).toFixed(1)}`}
-          fill="none"
-          stroke={c}
-          strokeWidth={b.r * (0.075 - n * 0.012)}
-          strokeLinecap="round"
-          opacity={(0.16 + b.depth * 0.26) * (1 - n * 0.16)}
-        />
-      ))}
-    </g>
-  );
-}
+/*
+  Staggered across the cycle so several rings are always in flight at
+  once: a wave train, not a single hoop. One ring reads as a circle;
+  six reading outward at graded radii read as sound.
+*/
+const PINGS = [0, -1.5, -3, -4.5, -6, -7.5, -9];
 
 export function EchoField({
   words = [],
-  variant = "hero",
+  ping = true,
   className = "",
 }: {
   words?: EchoWord[];
-  /**
-   * "hero" is the full image: the surface, the meniscus, words coming
-   * through. "ambient" is the same water with no surface — for sitting
-   * behind a card, where a second horizon would only fight it.
-   */
-  variant?: "hero" | "ambient";
+  /** the sonar through the ink; off where it would compete with content */
+  ping?: boolean;
   className?: string;
 }) {
-  const ambient = variant === "ambient";
-  const bands: Bloom[][] = [[], [], []];
-  BLOOMS.forEach((b) => bands[b.band].push(b));
-
   return (
     /*
       Position is the caller's to set — the field is used both as a block
       in the hero and as an inset halo behind a card. Hardcoding `relative`
       here silently beat callers' `absolute` in the cascade and collapsed
-      the halo to zero height.
+      every inset instance to zero height.
     */
-    <div
-      className={`echo-field ${ambient ? "echo-field--ambient" : ""} overflow-hidden ${className}`}
-      aria-hidden
-    >
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="xMidYMid slice"
-        className="absolute inset-0 h-full w-full"
-      >
-        <defs>
-          {BLOOMS.map((b, i) => (
-            <radialGradient key={i} id={`eb-glow-${i}`}>
-              <stop offset="0%" stopColor={tint(b.depth)} stopOpacity={0.38 + b.depth * 0.22} />
-              <stop offset="48%" stopColor={tint(b.depth)} stopOpacity={0.15 + b.depth * 0.1} />
-              <stop offset="100%" stopColor={tint(b.depth)} stopOpacity="0" />
-            </radialGradient>
-          ))}
-
-          {/* three depths of diffusion — the water between you and the form */}
-          <filter id="eb-near" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="0.9" />
-          </filter>
-          <filter id="eb-mid" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="1.9" />
-          </filter>
-          <filter id="eb-far" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="3.4" />
-          </filter>
-
-          <filter id="eb-caustic" x="-20%" y="-20%" width="140%" height="140%">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.009 0.042"
-              numOctaves="2"
-              seed="11"
-              result="n"
-            />
-            <feColorMatrix
-              in="n"
-              type="matrix"
-              values="0 0 0 0 0.48  0 0 0 0 0.40  0 0 0 0 0.79  0 0 0 -1.5 0.58"
-            />
-            <feGaussianBlur stdDeviation="0.5" />
-          </filter>
-
-          {/* the dark falling away below — a shape, not a full-bleed fill,
-              so the field never draws its own rectangle */}
-          <radialGradient id="eb-depth" cx="50%" cy="96%" r="72%">
-            <stop offset="0%" stopColor="#232145" stopOpacity="0.2" />
-            <stop offset="60%" stopColor={INDIGO} stopOpacity="0.07" />
-            <stop offset="100%" stopColor={INDIGO} stopOpacity="0" />
-          </radialGradient>
-
-          {/* everything fades at the frame; nothing touches an edge */}
-          <radialGradient id="eb-vignette" cx="50%" cy="38%" r="70%">
-            <stop offset="0%" stopColor="#fff" stopOpacity="1" />
-            <stop offset="58%" stopColor="#fff" stopOpacity="0.92" />
-            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-          </radialGradient>
-          <mask id="eb-mask">
-            <rect width="100" height="100" fill="url(#eb-vignette)" />
-          </mask>
-        </defs>
-
-        <ellipse cx="50" cy="96" rx="72" ry="56" fill="url(#eb-depth)" />
-
-        <g mask="url(#eb-mask)">
-        <g filter="url(#eb-far)">
-          {bands[2].map((b) => (
-            <Bloom key={`${b.x}-${b.y}`} b={b} i={BLOOMS.indexOf(b)} />
-          ))}
-        </g>
-        <g filter="url(#eb-mid)">
-          {bands[1].map((b) => (
-            <Bloom key={`${b.x}-${b.y}`} b={b} i={BLOOMS.indexOf(b)} />
-          ))}
-        </g>
-        <g filter="url(#eb-near)">
-          {bands[0].map((b) => (
-            <Bloom key={`${b.x}-${b.y}`} b={b} i={BLOOMS.indexOf(b)} />
-          ))}
-        </g>
-
-        {/* light broken by a moving surface, falling on everything below */}
-        {/* light broken by a moving surface, falling on everything below */}
-        <rect
-          width="100"
-          height="52"
-          filter="url(#eb-caustic)"
-          opacity="0.5"
-          className="echo-caustic"
+    <div className={`overflow-hidden ${className}`} aria-hidden>
+      {DEFAULT_BLOBS.map((b, i) => (
+        <span
+          key={i}
+          className={b.drift ? "animate-drift" : undefined}
+          style={{
+            position: "absolute",
+            left: `${b.x}%`,
+            top: `${b.y}%`,
+            width: `${b.w}%`,
+            height: `${b.h}%`,
+            background: `radial-gradient(closest-side, ${b.c} 34%, transparent 82%)`,
+            opacity: b.o,
+            filter: "blur(17px)",
+          }}
         />
-        </g>
-      </svg>
+      ))}
 
-      {/* The surface the echo blooms against — hero only. */}
-      {!ambient && <div className="echo-surface" />}
+      {ping &&
+        PINGS.map((delay, i) => (
+          <span key={i} className="echo-ping" style={{ animationDelay: `${delay}s` }} />
+        ))}
 
       {words.map((w) => (
         <span
