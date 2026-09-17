@@ -174,59 +174,77 @@ body {
 }
 
 /* ---- echo field ------------------------------------------------------
-   The ping through the ink: rings opening outward and dying away.
-   Flattened so they read as ripples crossing a surface rather than
-   circles drawn on a page, and blurred so they belong to the same
-   frosted world as the ink-forms they travel through. */
-
-.echo-ping {
-  position: absolute;
-  left: 50%;
-  top: 46%;
-  width: 108%;
-  height: 66%;
-  translate: -50% -50%;
-  border-radius: 50%;
-  /* Deep enough to hold against the ink it crosses. A paler ring reads as
-     a smudge; this one reads as a wavefront. */
-  border: 2px solid color-mix(in oklab, var(--color-lilac-ink) 75%, transparent);
-  filter: blur(0.8px);
-  opacity: 0;
-  pointer-events: none;
-  will-change: transform, opacity;
-  animation: echo-ping 10.5s linear infinite;
-}
-
-/* alternating weight gives the train a beat rather than a smooth gradient */
-.echo-ping:nth-child(even) {
-  border-width: 1.2px;
-  border-color: color-mix(in oklab, var(--color-lilac-deep) 70%, transparent);
-  filter: blur(1.4px);
-}
+   The aperture: a dark well opened in the pale page, breathing like
+   something seen through moving water. Nothing here is a hard edge — the
+   rim falls away to nothing so it reads as an opening, not a tile. */
 
 /*
-  Crisp rings against soft ink is the point: the signal stays legible,
-  the medium it travels through does not. The hold through the middle of
-  the flight is deliberate — fading them early leaves one visible ring,
-  which reads as a circle rather than as sound.
+  No CSS filter over this SVG, and no animation on the displacement-
+  filtered ring group: either one forces the whole filtered subtree to
+  re-rasterise every frame. Measured at 30fps with them, 60 without, on a
+  page whose baseline is a clean 16.7ms. The water is baked into the warp;
+  the motion lives on cheap, composited layers instead.
 */
-@keyframes echo-ping {
-  0% {
-    transform: scale(0.06);
-    opacity: 0;
-  }
-  6% {
-    opacity: 0.85;
-  }
-  70% {
-    opacity: 0.62;
-  }
-  92% {
-    opacity: 0.14;
-  }
+.echo-rings {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+}
+
+.echo-smear {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  animation: echo-turn 64s linear infinite;
+  will-change: transform;
+}
+
+.echo-core {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  animation: echo-beat 7.5s cubic-bezier(0.4, 0, 0.5, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.echo-core-halo {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  animation: echo-beat 7.5s cubic-bezier(0.4, 0, 0.5, 1) infinite reverse;
+  will-change: transform, opacity;
+}
+
+/* words come up out of the dark rather than sitting on it */
+.echo-word {
+  color: var(--color-paper);
+  text-shadow: 0 0 22px rgba(10, 16, 28, 0.85);
+}
+
+@keyframes echo-swell {
+  0%,
   100% {
-    transform: scale(1);
-    opacity: 0;
+    transform: scale(0.985);
+  }
+  50% {
+    transform: scale(1.028);
+  }
+}
+
+@keyframes echo-beat {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.86;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes echo-turn {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 

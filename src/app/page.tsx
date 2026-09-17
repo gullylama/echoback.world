@@ -69,6 +69,7 @@ function Hero() {
 
         <div className="relative mx-auto w-full max-w-md animate-rise" style={{ animationDelay: "0.12s" }}>
           <EchoField
+            variant="aperture"
             className="relative aspect-square w-full"
             words={[
               { text: "I", x: 50, y: 9, size: 2.3 },
@@ -104,7 +105,7 @@ function TheReturn() {
           </p>
         </div>
         <div className="relative mx-auto w-full max-w-md">
-          <EchoField ping={false} className="absolute -inset-10 opacity-40" />
+          <EchoField className="absolute -inset-10 opacity-40" />
           <div className="relative rounded-2xl border border-hairline bg-paper-raised/85 p-6 shadow-[0_24px_60px_-36px_rgba(35,33,69,0.45)] backdrop-blur-md">
             <div className="flex items-center justify-between">
               <span className="label text-ink-faint">Match returned</span>
