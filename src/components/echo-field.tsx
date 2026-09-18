@@ -1,21 +1,24 @@
 /*
   Echo field — the brand's core image, in two forms.
 
-  "aperture" (the hero): a dark well opened in the pale page. A luminous
-  core with concentric interference rings running out of it, warped and
-  smeared as if the whole thing were being watched through moving water.
-  This is sound made visible — cymatics, a long exposure of a surface
-  under a tone — which is why the core is allowed the lilac-to-rose
-  gradient: here the subject genuinely is audio.
+  "wave" (the hero): a wavefront seen through frosted glass, its edge
+  split into red, green and blue and shimmering apart. That channel split
+  is the whole effect — where two channels overlap you get the cyan and
+  amber of a prism, and the separation swells and travels along the crest
+  so it moves like water rather than scrolling like a banner. Sound and
+  water saying the same thing.
 
-  Rings carry a warm edge against a cool body. That chromatic fringe is
-  what stops concentric circles reading as a diagram and makes them read
-  as light bending through water.
+  Everything is painted rather than filtered: the softness comes from
+  stacked strokes, wide-and-faint under thin-and-bright, and the colour
+  from `screen` blending over a dark ground. No SVG filter and no CSS
+  filter sits over an animating layer, because either one re-rasterises
+  the subtree every frame — that cost this hero half its frame rate once
+  already.
 
   "ink" (behind cards): the original soft organic ink-forms, with sharp
   words surfacing from the blur. The contrast of focus and blur *is* the
-  product — matches stay blurred until revealed — and behind a card a dark
-  aperture would only fight the content sitting on it.
+  product — matches stay blurred until revealed — and behind a card the
+  dark ground would fight the content sitting on it.
 */
 
 interface Blob {
@@ -70,11 +73,35 @@ const DEFAULT_BLOBS: Blob[] = [
 ];
 
 /*
-  Interference rings. Spacing tightens toward the core and opens outward,
-  the way standing waves actually crowd near the driver — evenly spaced
-  rings read as a target, uneven ones read as a wavefront.
+  The three channels. Saturated enough that `screen` overlaps throw real
+  cyan and amber — a pastel split just reads as a smudge — but tilted
+  toward the brand's warm and its lilac rather than pure RGB.
 */
-const RINGS = [8.5, 13, 18.5, 25.5, 31, 39, 48.5, 58, 70];
+const CHANNELS = [
+  { c: "#ff4d6d", dx: -2.1, dy: -0.85, cls: "echo-ch-r" },
+  { c: "#3ee0c0", dx: 0.25, dy: 1.05, cls: "echo-ch-g" },
+  { c: "#7d63c9", dx: 2.2, dy: -0.45, cls: "echo-ch-b" },
+];
+
+/** Crests at different heights, wavelengths and phases. */
+const CRESTS = [
+  { y: 34, amp: 7.4, len: 1.0, phase: 0, w: 1.5, o: 0.95 },
+  { y: 48, amp: 9.6, len: 0.78, phase: 1.9, w: 1.9, o: 1 },
+  { y: 62, amp: 6.8, len: 1.26, phase: 3.6, w: 1.4, o: 0.8 },
+  { y: 74, amp: 4.6, len: 1.7, phase: 5.1, w: 1.1, o: 0.5 },
+];
+
+/** A crest as a path: a fundamental with two harmonics on top of it. */
+function crestPath(y: number, amp: number, len: number, phase: number): string {
+  const pts: string[] = [];
+  for (let x = -6; x <= 106; x += 2) {
+    const t = (x / 100) * Math.PI * 2 * len + phase;
+    const v =
+      Math.sin(t) * 0.62 + Math.sin(t * 2.3 + 1.1) * 0.26 + Math.sin(t * 3.7 + 2.2) * 0.12;
+    pts.push(`${x.toFixed(1)} ${(y + v * amp).toFixed(2)}`);
+  }
+  return `M${pts.join(" L")}`;
+}
 
 export function EchoField({
   words = [],
@@ -82,11 +109,11 @@ export function EchoField({
   className = "",
 }: {
   words?: EchoWord[];
-  /** "aperture" is the dark well; "ink" the soft cloud behind cards */
-  variant?: "aperture" | "ink";
+  /** "wave" is the frosted wavefront; "ink" the soft cloud behind cards */
+  variant?: "wave" | "ink";
   className?: string;
 }) {
-  const aperture = variant === "aperture";
+  const wave = variant === "wave";
 
   return (
     /*
@@ -96,13 +123,13 @@ export function EchoField({
       every inset instance to zero height.
     */
     <div className={`overflow-hidden ${className}`} aria-hidden>
-      {aperture ? <Aperture /> : <Ink />}
+      {wave ? <Wave /> : <Ink />}
 
       {words.map((w) => (
         <span
           key={w.text + w.x}
           className={`font-serif-display absolute whitespace-nowrap ${
-            aperture ? "echo-word" : "text-ink"
+            wave ? "echo-word" : "text-ink"
           }`}
           style={{
             left: `${w.x}%`,
@@ -142,143 +169,56 @@ function Ink() {
   );
 }
 
-function Aperture() {
+function Wave() {
   return (
-    <svg
-      viewBox="0 0 100 100"
-      preserveAspectRatio="xMidYMid slice"
-      className="echo-aperture absolute inset-0 h-full w-full"
-    >
-      <defs>
-        {/* the well: near-black at the rim, opening to a lit centre */}
-        <radialGradient id="ea-well" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#1b2740" stopOpacity="0.97" />
-          <stop offset="34%" stopColor="#111a2b" stopOpacity="0.99" />
-          <stop offset="72%" stopColor="#080d15" stopOpacity="1" />
-          <stop offset="100%" stopColor="#05080d" stopOpacity="1" />
-        </radialGradient>
+    <div className="echo-wave absolute inset-0">
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+      >
+        <defs>
+          {/* the ground the colour needs: screen over pale is just pale */}
+          <linearGradient id="ew-ground" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#080d17" stopOpacity="1" />
+            <stop offset="45%" stopColor="#141c2e" stopOpacity="1" />
+            <stop offset="100%" stopColor="#070b14" stopOpacity="1" />
+          </linearGradient>
 
-        {/* the core — the one place the audio gradient belongs */}
-        <radialGradient id="ea-core" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#fdf6f8" stopOpacity="0.97" />
-          <stop offset="22%" stopColor="var(--color-rose)" stopOpacity="0.8" />
-          <stop offset="52%" stopColor="var(--color-lilac)" stopOpacity="0.42" />
-          <stop offset="100%" stopColor="var(--color-lilac-deep)" stopOpacity="0" />
-        </radialGradient>
+        </defs>
 
-        {/* the hot centre */}
-        <radialGradient id="ea-flame" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#fff4ec" stopOpacity="1" />
-          <stop offset="38%" stopColor="#ffb98d" stopOpacity="0.9" />
-          <stop offset="72%" stopColor="var(--color-rose-deep)" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="var(--color-rose-deep)" stopOpacity="0" />
-        </radialGradient>
+        <g>
+          <rect width="100" height="100" fill="url(#ew-ground)" />
 
-        {/* the halo the core throws onto the water around it */}
-        <radialGradient id="ea-halo" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#bcd2e8" stopOpacity="0.5" />
-          <stop offset="45%" stopColor="#6d7fb0" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#2a3550" stopOpacity="0" />
-        </radialGradient>
-
-        {/* water: a slow warp applied to the rings, not to the light */}
-        <filter id="ea-water" x="-25%" y="-25%" width="150%" height="150%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.015 0.019"
-            numOctaves="2"
-            seed="5"
-            result="warp"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="warp"
-            scale="5.6"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-          <feGaussianBlur stdDeviation="0.85" />
-        </filter>
-
-        {/* the rim falls away to nothing — an aperture, never a tile */}
-        <radialGradient id="ea-vig" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#fff" stopOpacity="1" />
-          <stop offset="62%" stopColor="#fff" stopOpacity="0.96" />
-          <stop offset="84%" stopColor="#fff" stopOpacity="0.45" />
-          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
-        <mask id="ea-mask">
-          <rect width="100" height="100" fill="url(#ea-vig)" />
-        </mask>
-      </defs>
-
-      <g mask="url(#ea-mask)">
-        <rect width="100" height="100" fill="url(#ea-well)" />
-
-        {/* radial smear — the long exposure */}
-        <g className="echo-smear" opacity="0.28">
-          {Array.from({ length: 16 }, (_, i) => {
-            const a = (i / 16) * Math.PI * 2;
-            const r0 = 16 + (i % 4) * 3;
-            const r1 = 30 + (i % 5) * 6;
-            return (
-              <line
-                key={i}
-                x1={50 + Math.cos(a) * r0}
-                y1={50 + Math.sin(a) * r0}
-                x2={50 + Math.cos(a) * r1}
-                y2={50 + Math.sin(a) * r1}
-                stroke={i % 3 === 0 ? "var(--color-rose)" : "#8ea6c8"}
-                strokeWidth={i % 3 === 0 ? 1.6 : 2.4}
-                strokeLinecap="round"
-                opacity={0.07}
-              />
-            );
-          })}
-        </g>
-
-        {/* the interference pattern */}
-        <g className="echo-rings">
-        <g filter="url(#ea-water)">
-          {RINGS.map((r, i) => {
-            const fade = 1 - i / (RINGS.length + 3);
-            return (
-              <g key={r}>
-                {/* warm fringe, offset — light bending, not a second circle */}
-                <ellipse
-                  cx={50}
-                  cy={50 - 0.22}
-                  rx={r * 1.02}
-                  ry={r * 0.96}
-                  fill="none"
-                  stroke="var(--color-rose-deep)"
-                  strokeWidth={0.75 + i * 0.09}
-                  opacity={0.52 * fade}
-                />
-                <ellipse
-                  cx={50}
-                  cy={50}
-                  rx={r}
-                  ry={r * 0.94}
-                  fill="none"
-                  stroke="#8fa8c9"
-                  strokeWidth={0.5 + i * 0.06}
-                  opacity={0.34 * fade}
-                />
+          {/*
+            Each channel is its own layer, offset and drifting at its own
+            rate. Screen blending does the prism: R over B gives magenta,
+            G over B cyan, all three white at the crest.
+          */}
+          {CHANNELS.map((ch) => (
+            <g key={ch.c} className={`echo-channel ${ch.cls}`}>
+              <g transform={`translate(${ch.dx} ${ch.dy})`}>
+                {CRESTS.map((cr, i) => {
+                  const d = crestPath(cr.y, cr.amp, cr.len, cr.phase);
+                  return (
+                    <g key={i} opacity={cr.o}>
+                      {/* wide and faint under thin and bright: a painted
+                          glow, so no filter has to run */}
+                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w * 5.5} opacity={0.06} />
+                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w * 2.4} opacity={0.14} />
+                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w} opacity={0.6} />
+                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w * 0.34} opacity={0.95} />
+                    </g>
+                  );
+                })}
               </g>
-            );
-          })}
+            </g>
+          ))}
         </g>
-        </g>
+      </svg>
 
-        <ellipse cx="50" cy="50" rx="34" ry="29" fill="url(#ea-halo)" className="echo-core-halo" />
-        <g className="echo-core">
-          {/* the lit body: a lens, wider than tall, as in the reference */}
-          <ellipse cx="50" cy="50" rx="15" ry="10.5" fill="url(#ea-core)" />
-          {/* the flame at its heart — the only place that runs truly hot */}
-          <ellipse cx="50" cy="50.4" rx="2.4" ry="6.2" fill="url(#ea-flame)" />
-        </g>
-      </g>
-    </svg>
+      {/* the frosted pane the wave is seen through */}
+      <div className="echo-frost" />
+    </div>
   );
 }
