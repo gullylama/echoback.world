@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioRef } from "@/lib/types";
+import { marbleFromHash } from "@/lib/marble";
 
 const SYNTH_SECONDS = 8;
 
@@ -128,7 +129,12 @@ export function TrackPlayer({
   disabled?: boolean;
   className?: string;
 }) {
-  const ref: AudioRef = audio ?? { trackId: null, peaks: null, seed: seed ?? 1 };
+  const ref: AudioRef = audio ?? {
+    trackId: null,
+    peaks: null,
+    seed: seed ?? 1,
+    marble: marbleFromHash(`seed:${seed ?? 1}`),
+  };
   const isReal = Boolean(ref.trackId);
 
   const [playing, setPlaying] = useState(false);

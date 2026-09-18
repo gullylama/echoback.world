@@ -43,6 +43,14 @@ export async function POST(req: Request) {
   const { serviceClient } = await import("@/lib/supabase/service");
   const supabase = serviceClient();
 
+  /*
+    The marble is projected here rather than at read time: the vectors are
+    512-dimension each, and a feed page would otherwise have to pull
+    thousands of floats to draw thumbnails.
+  */
+  const { marbleFromVectors } = await import("@/lib/marble");
+  const marble = marbleFromVectors(body.vocal, body.style, body.production);
+
   const { error: fpError } = await supabase.from("fingerprints").upsert(
     {
       track_id: body.trackId,
@@ -50,6 +58,7 @@ export async function POST(req: Request) {
       vocal_vector: body.vocal,
       style_vector: body.style,
       production_vector: body.production,
+      marble,
     },
     { onConflict: "track_id" }
   );

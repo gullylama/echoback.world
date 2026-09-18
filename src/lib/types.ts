@@ -61,6 +61,12 @@ export interface AudioRef {
   /** real waveform captured in the browser at upload; null falls back to `seed` */
   peaks: number[] | null;
   seed: number;
+  /**
+   * Six numbers that draw this track's marble, projected from its
+   * fingerprint so that tracks which sound alike look alike. Falls back to
+   * the content hash until the engine has listened. See lib/marble.ts.
+   */
+  marble: number[];
 }
 
 /** A signed slot in storage the browser can PUT straight to. */

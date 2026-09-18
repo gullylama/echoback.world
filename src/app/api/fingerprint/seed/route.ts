@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { supabaseConfigured } from "@/lib/config";
 import { placeholderFingerprint } from "@/lib/placeholder-vectors";
+import { marbleFromVectors } from "@/lib/marble";
 
 /*
   OPERATOR TOOL — proves the live pipeline works before the GPU worker exists.
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
     // missing hash still gets a stable vector rather than being skipped.
     const seedKey = track.content_hash || track.id;
     const { vocal, style, production } = placeholderFingerprint(seedKey);
+    const marble = marbleFromVectors(vocal, style, production);
 
     const { error: fpError } = await supabase.from("fingerprints").upsert(
       {
@@ -83,6 +85,7 @@ export async function POST(req: Request) {
         vocal_vector: vocal,
         style_vector: style,
         production_vector: production,
+      marble,
       },
       { onConflict: "track_id" }
     );

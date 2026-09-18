@@ -28,6 +28,7 @@ import {
   hashString,
   rng,
 } from "./seed";
+import { marbleFromHash } from "@/lib/marble";
 
 export interface DemoUser {
   id: string;
@@ -193,7 +194,12 @@ function seedTalentSide(user: DemoUser) {
     seed: previewSeedFor(user.id),
     status: "fingerprinted",
     consentConfirmed: true,
-    audio: { trackId: null, peaks: null, seed: previewSeedFor(user.id) },
+    audio: {
+      trackId: null,
+      peaks: null,
+      seed: previewSeedFor(user.id),
+      marble: marbleFromHash(`demo-ref:${user.id}`),
+    },
   };
   d.tracks.set(refTrack.id, refTrack);
 
@@ -209,7 +215,12 @@ function seedTalentSide(user: DemoUser) {
       seed: hashString(f.title),
       status: "fingerprinted",
       consentConfirmed: true,
-      audio: { trackId: null, peaks: null, seed: hashString(f.title) },
+      audio: {
+        trackId: null,
+        peaks: null,
+        seed: hashString(f.title),
+        marble: marbleFromHash(`demo-feed:${f.title}`),
+      },
     };
     d.tracks.set(track.id, track);
     const talentProfile = d.profiles.get(user.id)!;
@@ -276,6 +287,9 @@ export function createDemoTrack(user: DemoUser, title: string, kind: Track["kind
     audio: {
       trackId: null,
       peaks: null,
+      marble: marbleFromHash(
+        isRef ? `demo-ref:${user.id}` : `demo-up:${user.id}:${title}:${d.counter}`
+      ),
       seed: isRef ? previewSeedFor(user.id) : hashString(user.id + ":" + title + ":" + d.counter),
     },
   };

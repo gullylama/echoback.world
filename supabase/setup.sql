@@ -392,3 +392,13 @@ alter table tracks
 -- ---------------------------------------------------------------------------
 alter table profiles
   add column if not exists email_notifications boolean not null default true;
+
+-- ---- 0007 marble ----------------------------------------------------
+alter table fingerprints
+  add column if not exists marble real[];
+
+alter table fingerprints
+  drop constraint if exists fingerprints_marble_len;
+alter table fingerprints
+  add constraint fingerprints_marble_len
+  check (marble is null or array_length(marble, 1) = 6);

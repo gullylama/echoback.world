@@ -46,10 +46,12 @@ import {
 } from "@/lib/demo/store";
 import { hashString, obscureName } from "@/lib/demo/seed";
 import { canInitiate, creatorCanReveal, hasActiveSub, talentView } from "./shared";
+import { marbleFromHash } from "@/lib/marble";
 
 /** Demo mode stores no files, so trackId stays null and the player synthesises. */
 function synthAudio(seed: number): AudioRef {
-  return { trackId: null, peaks: null, seed };
+  // Demo tracks have no fingerprint, so their marbles come from the seed.
+  return { trackId: null, peaks: null, seed, marble: marbleFromHash(`demo:${seed}`) };
 }
 
 function summarise(request: DemoRequest | null, viewerId: string): RequestSummary | null {

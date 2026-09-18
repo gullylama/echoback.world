@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
 import { countPendingRequests, feedGenres, getFeed } from "@/lib/data";
 import { TrackPlayer } from "@/components/track-player";
+import { Marble } from "@/components/marble";
 import { RequestButton } from "@/components/request-button";
 import { SimilarityBadge } from "@/components/meters";
 import { EchoField } from "@/components/echo-field";
@@ -83,14 +84,17 @@ function FeedRow({ item }: { item: FeedItemView }) {
   const component = item.scores.vocal || item.scores.production;
   return (
     <article className="flex flex-col gap-4 bg-paper-raised p-5 lg:flex-row lg:items-center lg:gap-6">
-      <div className="min-w-0 lg:w-64">
-        <p className="truncate text-base font-semibold tracking-tight">{item.demo.title}</p>
-        <p className="mt-0.5 truncate text-xs text-ink-faint">
-          by {item.demo.creatorName}
-          {item.demo.genres.length > 0 && <> · {item.demo.genres.join(", ")}</>}
-          {item.demo.durationSec > 0 && <> · {fmtDuration(item.demo.durationSec)}</>}
-        </p>
-        <p className="mt-0.5 text-xs text-ink-faint">{timeAgo(item.createdAt)}</p>
+      <div className="flex min-w-0 items-center gap-3.5 lg:w-64">
+        <Marble marble={item.demo.audio.marble} size={52} title={item.demo.title} />
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold tracking-tight">{item.demo.title}</p>
+          <p className="mt-0.5 truncate text-xs text-ink-faint">
+            by {item.demo.creatorName}
+            {item.demo.genres.length > 0 && <> · {item.demo.genres.join(", ")}</>}
+            {item.demo.durationSec > 0 && <> · {fmtDuration(item.demo.durationSec)}</>}
+          </p>
+          <p className="mt-0.5 text-xs text-ink-faint">{timeAgo(item.createdAt)}</p>
+        </div>
       </div>
 
       <TrackPlayer

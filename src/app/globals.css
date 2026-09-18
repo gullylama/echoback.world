@@ -222,6 +222,23 @@ body {
   text-shadow: 0 0 26px rgba(8, 7, 22, 0.94);
 }
 
+/* A track's marble: its fingerprint, made visible. */
+.echo-marble {
+  position: relative;
+  flex: none;
+  border-radius: 999px;
+  overflow: hidden;
+  background-clip: padding-box;
+  box-shadow:
+    0 6px 16px -8px rgba(14, 12, 38, 0.6),
+    inset 0 0 0 1px rgba(233, 235, 245, 0.18);
+}
+
+.echo-marble img,
+.echo-marble canvas {
+  border-radius: 999px;
+}
+
 .font-serif-display {
   font-family: var(--font-serif);
   font-weight: 400;

@@ -31,6 +31,7 @@ import { hashString, obscureName } from "@/lib/demo/seed";
 import { serviceClient } from "@/lib/supabase/service";
 import { stripeConfigured } from "@/lib/config";
 import { canInitiate, creatorCanReveal, hasActiveSub, talentView } from "./shared";
+import { normaliseMarble } from "@/lib/marble";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -59,8 +60,20 @@ function mapPeaks(raw: unknown): number[] | null {
 }
 
 /** The player only ever gets a track id — never a storage URL. */
-function audioRef(trackId: string | null, peaks: unknown, seedKey: string): AudioRef {
-  return { trackId, peaks: mapPeaks(peaks), seed: hashString(seedKey) };
+function audioRef(
+  trackId: string | null,
+  peaks: unknown,
+  seedKey: string,
+  marble?: unknown
+): AudioRef {
+  return {
+    trackId,
+    peaks: mapPeaks(peaks),
+    seed: hashString(seedKey),
+    // Falls back to the id until the engine has listened, so a marble always
+    // exists and becomes meaningful the moment the fingerprint lands.
+    marble: normaliseMarble(marble, seedKey),
+  };
 }
 
 function mapTrack(row: any): Track {
@@ -76,13 +89,18 @@ function mapTrack(row: any): Track {
     seed: hashString(row.id),
     status,
     consentConfirmed: Boolean(row.consent_confirmed),
-    audio: audioRef(row.storage_path ? row.id : null, row.peaks, row.id),
+    audio: audioRef(
+      row.storage_path ? row.id : null,
+      row.peaks,
+      row.id,
+      row.fingerprints?.marble ?? row.marble
+    ),
   };
 }
 
 const PROFILE_COLS = "id, role, display_name, location, bio, genres, craft";
 const TRACK_COLS =
-  "id, owner_id, kind, title, duration_sec, created_at, status, consent_confirmed, peaks, storage_path";
+  "id, owner_id, kind, title, duration_sec, created_at, status, consent_confirmed, peaks, storage_path, fingerprints(marble)";
 const MATCH_COLS = "id, demo_track_id, talent_track_id, vocal_score, style_score, production_score, blended_score, created_at";
 
 function scoresOf(r: any) {

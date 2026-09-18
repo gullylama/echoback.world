@@ -10,6 +10,7 @@ import {
 } from "@/lib/data";
 import { deleteTrackAction } from "@/app/actions";
 import { TrackPlayer } from "@/components/track-player";
+import { Marble } from "@/components/marble";
 import { EchoPulse } from "@/components/meters";
 import { fmtDuration, timeAgo } from "@/lib/format";
 import type { Track } from "@/lib/types";
@@ -90,11 +91,14 @@ async function CreatorStudio() {
               key={track.id}
               className="flex flex-col gap-5 bg-paper-raised p-6 sm:flex-row sm:items-center sm:gap-8"
             >
-              <div className="min-w-0 sm:w-64">
-                <p className="truncate text-lg font-semibold tracking-tight">{track.title}</p>
-                <p className="mt-1 text-xs text-ink-faint">{trackMeta(track)}</p>
-                <div className="mt-1.5">
-                  <RemoveButton trackId={track.id} />
+              <div className="flex min-w-0 items-center gap-3 sm:w-64">
+                <Marble marble={track.audio.marble} size={46} title={track.title} />
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-semibold tracking-tight">{track.title}</p>
+                  <p className="mt-1 text-xs text-ink-faint">{trackMeta(track)}</p>
+                  <div className="mt-1.5">
+                    <RemoveButton trackId={track.id} />
+                  </div>
                 </div>
               </div>
               <TrackPlayer audio={track.audio} label={track.title} className="flex-1" height={34} />
@@ -235,17 +239,28 @@ async function TalentStudio() {
           ) : (
             <ul className="mt-4 flex flex-col gap-4">
               {refs.map((t) => (
-                <li key={t.id}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="truncate text-sm font-medium">{t.title}</p>
-                    <RemoveButton trackId={t.id} />
+                <li key={t.id} className="flex items-start gap-3">
+                  <Marble marble={t.audio.marble} size={34} title={t.title} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="truncate text-sm font-medium">{t.title}</p>
+                      <RemoveButton trackId={t.id} />
+                    </div>
+                    {t.status !== "fingerprinted" && (
+                      <p className="mt-0.5 text-xs text-ink-faint">
+                        {t.status === "failed"
+                          ? "Fingerprinting failed"
+                          : "The engine is listening…"}
+                      </p>
+                    )}
+                    <TrackPlayer
+                      audio={t.audio}
+                      label={t.title}
+                      height={26}
+                      barCount={44}
+                      className="mt-2"
+                    />
                   </div>
-                  {t.status !== "fingerprinted" && (
-                    <p className="mt-0.5 text-xs text-ink-faint">
-                      {t.status === "failed" ? "Fingerprinting failed" : "The engine is listening…"}
-                    </p>
-                  )}
-                  <TrackPlayer audio={t.audio} label={t.title} height={26} barCount={44} className="mt-2" />
                 </li>
               ))}
             </ul>
