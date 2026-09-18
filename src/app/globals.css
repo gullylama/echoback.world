@@ -174,74 +174,105 @@ body {
 }
 
 /* ---- echo field ------------------------------------------------------
-   A wavefront behind frosted glass, its edge split into RGB.
+   A curtain of aurora light behind frosted glass.
 
-   Rule learned the hard way here: never put an SVG filter or a CSS filter
-   over a layer that animates. Either one re-rasterises the whole subtree
-   every frame — it cost this hero half its frame rate. Everything below
-   animates transforms and opacity only, which the compositor handles, and
-   the softness is painted with stacked strokes instead. */
+   Rule learned the hard way here: never put an SVG or CSS filter over a
+   layer that animates. Either one re-rasterises the whole subtree every
+   frame — it cost this hero half its frame rate. Everything below animates
+   transforms and opacity only, which the compositor handles, and the
+   softness is painted with translucent stacks instead.
 
-.echo-wave {
+   Second rule: a radial-gradient mask takes RADII, not diameters. Anything
+   over 50% horizontally reaches the container edge still opaque and clips
+   to a hard line, which is what kept drawing a rectangle around this. */
+
+.echo-aurora {
   isolation: isolate;
-  /* A circular mask turns a wave back into an orb. This lens is wider
-     than it is tall, so the crests run out of frame left and right and
-     read as a wave passing through. */
-  /* Radii, not diameters: anything over 50% horizontally reaches the
-     container edge still opaque and clips to a hard line. */
-  mask-image: radial-gradient(56% 44% at 50% 50%, #000 38%, rgba(0, 0, 0, 0.55) 70%, transparent 100%);
-  -webkit-mask-image: radial-gradient(56% 44% at 50% 50%, #000 38%, rgba(0, 0, 0, 0.55) 70%, transparent 100%);
+  mask-image: radial-gradient(52% 50% at 50% 50%, #000 40%, rgba(0, 0, 0, 0.55) 72%, transparent 100%);
+  -webkit-mask-image: radial-gradient(52% 50% at 50% 50%, #000 40%, rgba(0, 0, 0, 0.55) 72%, transparent 100%);
 }
 
-.echo-channel {
+.echo-curtain {
   mix-blend-mode: screen;
   transform-box: fill-box;
-  will-change: transform;
+  will-change: transform, opacity;
 }
 
 /*
-  Each channel drifts at its own rate and phase, so the separation swells
-  and travels along the crest rather than the whole image sliding. That
-  travelling is what reads as water; a uniform scroll reads as a banner.
+  Three curtains on their own rates and phases. An aurora does not scroll;
+  it leans and breathes, and the brightness travels along it — so these
+  translate a little, scale vertically a lot, and cross-fade against each
+  other rather than moving as one sheet.
 */
-.echo-ch-r {
-  animation: echo-split-r 9.5s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+.echo-curtain-a {
+  animation: echo-lean-a 23s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-.echo-ch-g {
-  animation: echo-split-g 12.5s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+.echo-curtain-b {
+  animation: echo-lean-b 17s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-.echo-ch-b {
-  animation: echo-split-b 7.5s cubic-bezier(0.37, 0, 0.63, 1) infinite;
-}
-
-@keyframes echo-split-r {
-  0%,
-  100% {
-    transform: translate3d(-0.55%, -0.3%, 0);
-  }
-  50% {
-    transform: translate3d(0.9%, 0.45%, 0);
-  }
+.echo-curtain-c {
+  animation: echo-lean-c 29s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@keyframes echo-split-g {
+@keyframes echo-lean-a {
   0%,
   100% {
-    transform: translate3d(0.5%, 0.5%, 0);
+    transform: translate3d(-1.2%, 1.5%, 0) scaleY(0.96) skewX(-1.1deg);
+    opacity: 0.82;
   }
   50% {
-    transform: translate3d(-0.75%, -0.55%, 0);
+    transform: translate3d(1.4%, -1.2%, 0) scaleY(1.06) skewX(1.4deg);
+    opacity: 1;
   }
 }
 
-@keyframes echo-split-b {
+@keyframes echo-lean-b {
   0%,
   100% {
-    transform: translate3d(0.75%, -0.2%, 0);
+    transform: translate3d(1.6%, -0.8%, 0) scaleY(1.05) skewX(1.6deg);
+    opacity: 1;
   }
   50% {
-    transform: translate3d(-0.6%, 0.6%, 0);
+    transform: translate3d(-1.5%, 1.6%, 0) scaleY(0.93) skewX(-1.2deg);
+    opacity: 0.7;
   }
+}
+
+@keyframes echo-lean-c {
+  0%,
+  100% {
+    transform: translate3d(0.8%, 1.1%, 0) scaleY(0.98) skewX(0.8deg);
+    opacity: 0.66;
+  }
+  50% {
+    transform: translate3d(-1%, -1.4%, 0) scaleY(1.09) skewX(-1.5deg);
+    opacity: 0.95;
+  }
+}
+
+/* the cloud the light falls out of, and the bank it lands on */
+.echo-cloud {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  pointer-events: none;
+}
+
+.echo-cloud--top {
+  top: -6%;
+  height: 46%;
+  background:
+    radial-gradient(56% 62% at 26% 28%, rgba(214, 208, 232, 0.3), transparent 70%),
+    radial-gradient(50% 54% at 68% 22%, rgba(196, 190, 220, 0.26), transparent 68%),
+    radial-gradient(76% 56% at 48% 2%, rgba(16, 12, 38, 0.9), transparent 74%);
+}
+
+.echo-cloud--base {
+  bottom: -8%;
+  height: 34%;
+  background:
+    radial-gradient(64% 70% at 46% 88%, rgba(190, 186, 214, 0.34), transparent 72%),
+    radial-gradient(48% 58% at 74% 96%, rgba(168, 164, 196, 0.26), transparent 70%);
 }
 
 /*
@@ -255,21 +286,21 @@ body {
   pointer-events: none;
   background:
     linear-gradient(
-      170deg,
-      rgba(238, 242, 241, 0.13),
-      rgba(238, 242, 241, 0.03) 42%,
-      rgba(238, 242, 241, 0.1)
+      168deg,
+      rgba(238, 242, 241, 0.07),
+      rgba(238, 242, 241, 0.015) 44%,
+      rgba(238, 242, 241, 0.055)
     ),
-    radial-gradient(120% 90% at 50% 0%, rgba(238, 242, 241, 0.16), transparent 62%);
+    radial-gradient(118% 84% at 50% 0%, rgba(238, 242, 241, 0.07), transparent 58%);
 }
 
 /* the grain doubles as the tooth of the glass */
-.echo-wave::after {
+.echo-aurora::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.16;
+  opacity: 0.11;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
 }
@@ -277,7 +308,7 @@ body {
 /* words come up out of the dark rather than sitting on it */
 .echo-word {
   color: var(--color-paper);
-  text-shadow: 0 0 24px rgba(6, 10, 18, 0.9);
+  text-shadow: 0 0 24px rgba(8, 7, 22, 0.92);
 }
 
 .font-serif-display {

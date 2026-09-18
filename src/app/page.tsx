@@ -69,7 +69,7 @@ function Hero() {
 
         <div className="relative mx-auto w-full max-w-md animate-rise" style={{ animationDelay: "0.12s" }}>
           <EchoField
-            variant="wave"
+            variant="aurora"
             className="relative aspect-square w-full"
             words={[
               { text: "I", x: 50, y: 9, size: 2.3 },

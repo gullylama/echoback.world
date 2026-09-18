@@ -1,19 +1,22 @@
 /*
   Echo field — the brand's core image, in two forms.
 
-  "wave" (the hero): a wavefront seen through frosted glass, its edge
-  split into red, green and blue and shimmering apart. That channel split
-  is the whole effect — where two channels overlap you get the cyan and
-  amber of a prism, and the separation swells and travels along the crest
-  so it moves like water rather than scrolling like a banner. Sound and
-  water saying the same thing.
+  "aurora" (the hero): a curtain of vertical light behind frosted glass.
+  Vertical columns of varying height and brightness ARE a spectrum, so the
+  same image reads as an aurora and as sound — which is the whole idea,
+  said once instead of twice.
 
-  Everything is painted rather than filtered: the softness comes from
-  stacked strokes, wide-and-faint under thin-and-bright, and the colour
-  from `screen` blending over a dark ground. No SVG filter and no CSS
-  filter sits over an animating layer, because either one re-rasterises
-  the subtree every frame — that cost this hero half its frame rate once
-  already.
+  The palette is sampled from the reference rather than invented: hues
+  clustered hard in blue-violet, running out through magenta and pink to a
+  little peach, with almost no green. Saturation is low — median 0.26 —
+  because an aurora is pale light, and neon would read as a gradient mesh.
+  It lands almost exactly on the brand's own indigo, lilac and rose.
+
+  Everything is painted rather than filtered: softness comes from stacked
+  translucent columns and `screen` blending over a dark ground. No SVG or
+  CSS filter sits over an animating layer, because either one re-rasterises
+  the subtree every frame — that cost this hero half its frame rate once.
+  Only transforms and opacity animate, which the compositor handles.
 
   "ink" (behind cards): the original soft organic ink-forms, with sharp
   words surfacing from the blur. The contrast of focus and blur *is* the
@@ -72,36 +75,77 @@ const DEFAULT_BLOBS: Blob[] = [
   { x: 52, y: 66, w: 16, h: 10, c: "var(--color-rose-deep)", o: 0.28 },
 ];
 
-/*
-  The three channels. Saturated enough that `screen` overlaps throw real
-  cyan and amber — a pastel split just reads as a smudge — but tilted
-  toward the brand's warm and its lilac rather than pure RGB.
-*/
-const CHANNELS = [
-  { c: "#ff4d6d", dx: -2.1, dy: -0.85, cls: "echo-ch-r" },
-  { c: "#3ee0c0", dx: 0.25, dy: 1.05, cls: "echo-ch-g" },
-  { c: "#7d63c9", dx: 2.2, dy: -0.45, cls: "echo-ch-b" },
-];
-
-/** Crests at different heights, wavelengths and phases. */
-const CRESTS = [
-  { y: 34, amp: 7.4, len: 1.0, phase: 0, w: 1.5, o: 0.95 },
-  { y: 48, amp: 9.6, len: 0.78, phase: 1.9, w: 1.9, o: 1 },
-  { y: 62, amp: 6.8, len: 1.26, phase: 3.6, w: 1.4, o: 0.8 },
-  { y: 74, amp: 4.6, len: 1.7, phase: 5.1, w: 1.1, o: 0.5 },
-];
-
-/** A crest as a path: a fundamental with two harmonics on top of it. */
-function crestPath(y: number, amp: number, len: number, phase: number): string {
-  const pts: string[] = [];
-  for (let x = -6; x <= 106; x += 2) {
-    const t = (x / 100) * Math.PI * 2 * len + phase;
-    const v =
-      Math.sin(t) * 0.62 + Math.sin(t * 2.3 + 1.1) * 0.26 + Math.sin(t * 3.7 + 2.2) * 0.12;
-    pts.push(`${x.toFixed(1)} ${(y + v * amp).toFixed(2)}`);
-  }
-  return `M${pts.join(" L")}`;
+/* Deterministic: the server and the client must draw the same curtain. */
+function rng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
+
+/*
+  Hue ramp taken from the reference: a little cyan at the cold edge, a long
+  weighted run through blue and violet, then out through magenta and pink
+  to peach and a touch of gold. Deliberately no green in the middle — the
+  reference has almost none, and adding it turns an aurora into a rainbow.
+
+  Hue is a function of POSITION, not of column index, so that overlapping
+  curtains reinforce the same colour at the same x and read as bands.
+  Keying it to the index instead makes every curtain span the whole ramp,
+  and three full spectra averaged together just come out violet.
+*/
+function hueAt(t: number): number {
+  if (t < 0.14) return 188 + (t / 0.14) * 24; //  cyan -> blue
+  if (t < 0.52) return 212 + ((t - 0.14) / 0.38) * 48; //  blue -> violet
+  if (t < 0.76) return 260 + ((t - 0.52) / 0.24) * 56; // violet -> magenta
+  if (t < 0.92) return 316 + ((t - 0.76) / 0.16) * 54; // magenta -> pink
+  return 370 + ((t - 0.92) / 0.08) * 28; // peach -> gold
+}
+
+interface Column {
+  x: number;
+  w: number;
+  top: number;
+  bottom: number;
+  hue: number;
+  sat: number;
+  light: number;
+  o: number;
+}
+
+/** One curtain of light: columns of differing height, a spectrum. */
+function curtain(seed: number, count: number, spread: number): Column[] {
+  const r = rng(seed);
+  const cols: Column[] = [];
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    // cluster toward the middle, thinning at the edges, as the reference does
+    const x = 50 + (t - 0.5) * spread + (r() - 0.5) * 3.2;
+    const fall = Math.sin(t * Math.PI); // brightest and longest at centre
+    // position, not index: curtains must agree on the colour at a given x
+    const place = Math.min(0.999, Math.max(0, (x - 6) / 88 + (r() - 0.5) * 0.06));
+    cols.push({
+      x,
+      w: 0.35 + r() * 1.5,
+      top: 20 + (1 - fall) * 20 + r() * 10,
+      bottom: 66 + fall * 22 + r() * 8,
+      hue: hueAt(place),
+      sat: 62 + r() * 34,
+      light: 50 + fall * 12 + r() * 9,
+      o: (0.24 + fall * 0.52 + r() * 0.24) * 0.98,
+    });
+  }
+  return cols;
+}
+
+const CURTAINS = [
+  { cols: curtain(11, 34, 86), cls: "echo-curtain-a" },
+  { cols: curtain(29, 26, 62), cls: "echo-curtain-b" },
+  { cols: curtain(47, 18, 40), cls: "echo-curtain-c" },
+];
 
 export function EchoField({
   words = [],
@@ -109,11 +153,11 @@ export function EchoField({
   className = "",
 }: {
   words?: EchoWord[];
-  /** "wave" is the frosted wavefront; "ink" the soft cloud behind cards */
-  variant?: "wave" | "ink";
+  /** "aurora" is the frosted light curtain; "ink" the cloud behind cards */
+  variant?: "aurora" | "ink";
   className?: string;
 }) {
-  const wave = variant === "wave";
+  const aurora = variant === "aurora";
 
   return (
     /*
@@ -123,13 +167,13 @@ export function EchoField({
       every inset instance to zero height.
     */
     <div className={`overflow-hidden ${className}`} aria-hidden>
-      {wave ? <Wave /> : <Ink />}
+      {aurora ? <Aurora /> : <Ink />}
 
       {words.map((w) => (
         <span
           key={w.text + w.x}
           className={`font-serif-display absolute whitespace-nowrap ${
-            wave ? "echo-word" : "text-ink"
+            aurora ? "echo-word" : "text-ink"
           }`}
           style={{
             left: `${w.x}%`,
@@ -169,55 +213,65 @@ function Ink() {
   );
 }
 
-function Wave() {
+function Aurora() {
   return (
-    <div className="echo-wave absolute inset-0">
+    <div className="echo-aurora absolute inset-0">
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         className="absolute inset-0 h-full w-full"
       >
         <defs>
-          {/* the ground the colour needs: screen over pale is just pale */}
-          <linearGradient id="ew-ground" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#080d17" stopOpacity="1" />
-            <stop offset="45%" stopColor="#141c2e" stopOpacity="1" />
-            <stop offset="100%" stopColor="#070b14" stopOpacity="1" />
+          {/* near-black indigo at the top, lifting toward the cloud base —
+              both sampled from the reference */}
+          <linearGradient id="au-ground" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0b091b" />
+            <stop offset="52%" stopColor="#161233" />
+            <stop offset="100%" stopColor="#2b2a44" />
           </linearGradient>
 
+          {CURTAINS.flatMap((cur, ci) =>
+            cur.cols.map((c, i) => (
+              <linearGradient key={`${ci}-${i}`} id={`au-c${ci}-${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={`hsl(${c.hue} ${c.sat}% ${c.light}%)`} stopOpacity="0" />
+                <stop offset="18%" stopColor={`hsl(${c.hue} ${c.sat}% ${c.light}%)`} stopOpacity="0.55" />
+                <stop offset="56%" stopColor={`hsl(${c.hue + 16} ${c.sat + 6}% ${c.light + 28}%)`} stopOpacity="1" />
+                <stop offset="88%" stopColor={`hsl(${c.hue + 44} ${c.sat}% ${c.light + 4}%)`} stopOpacity="0.45" />
+                <stop offset="100%" stopColor={`hsl(${c.hue + 44} ${c.sat}% ${c.light}%)`} stopOpacity="0" />
+              </linearGradient>
+            ))
+          )}
         </defs>
 
-        <g>
-          <rect width="100" height="100" fill="url(#ew-ground)" />
+        <rect width="100" height="100" fill="url(#au-ground)" />
 
-          {/*
-            Each channel is its own layer, offset and drifting at its own
-            rate. Screen blending does the prism: R over B gives magenta,
-            G over B cyan, all three white at the crest.
-          */}
-          {CHANNELS.map((ch) => (
-            <g key={ch.c} className={`echo-channel ${ch.cls}`}>
-              <g transform={`translate(${ch.dx} ${ch.dy})`}>
-                {CRESTS.map((cr, i) => {
-                  const d = crestPath(cr.y, cr.amp, cr.len, cr.phase);
-                  return (
-                    <g key={i} opacity={cr.o}>
-                      {/* wide and faint under thin and bright: a painted
-                          glow, so no filter has to run */}
-                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w * 5.5} opacity={0.06} />
-                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w * 2.4} opacity={0.14} />
-                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w} opacity={0.6} />
-                      <path d={d} fill="none" stroke={ch.c} strokeWidth={cr.w * 0.34} opacity={0.95} />
-                    </g>
-                  );
-                })}
-              </g>
-            </g>
-          ))}
-        </g>
+        {/*
+          Three curtains drifting at their own rates. Animating the group
+          rather than each column keeps this to three composited layers
+          instead of seventy-eight.
+        */}
+        {CURTAINS.map((cur, ci) => (
+          <g key={ci} className={`echo-curtain ${cur.cls}`}>
+            {cur.cols.map((c, i) => (
+              <rect
+                key={i}
+                x={c.x - c.w / 2}
+                y={c.top}
+                width={c.w}
+                height={c.bottom - c.top}
+                fill={`url(#au-c${ci}-${i})`}
+                opacity={c.o}
+              />
+            ))}
+          </g>
+        ))}
       </svg>
 
-      {/* the frosted pane the wave is seen through */}
+      {/* the cloud the light falls out of, and the one it lands on */}
+      <div className="echo-cloud echo-cloud--top" />
+      <div className="echo-cloud echo-cloud--base" />
+
+      {/* the frosted pane it is all seen through */}
       <div className="echo-frost" />
     </div>
   );
