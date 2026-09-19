@@ -93,7 +93,7 @@ function mapTrack(row: any): Track {
       row.storage_path ? row.id : null,
       row.peaks,
       row.id,
-      row.fingerprints?.marble ?? row.marble
+      one<any>(row.fingerprints)?.marble
     ),
   };
 }
@@ -101,6 +101,9 @@ function mapTrack(row: any): Track {
 const PROFILE_COLS = "id, role, display_name, location, bio, genres, craft";
 const TRACK_COLS =
   "id, owner_id, kind, title, duration_sec, created_at, status, consent_confirmed, peaks, storage_path, fingerprints(marble)";
+/** How many matches one feed page will ever draw. */
+const FEED_MAX = 60;
+
 const MATCH_COLS = "id, demo_track_id, talent_track_id, vocal_score, style_score, production_score, blended_score, created_at";
 
 function scoresOf(r: any) {
@@ -301,7 +304,7 @@ export async function getMatchesForTrack(user: SessionUser, trackId: string): Pr
     .from("matches")
     .select(
       `${MATCH_COLS}, talent:profiles!matches_talent_profile_id_fkey(${PROFILE_COLS}),
-       talent_track:tracks!matches_talent_track_id_fkey(id, peaks, storage_path)`
+       talent_track:tracks!matches_talent_track_id_fkey(id, peaks, storage_path, fingerprints(marble))`
     )
     .eq("demo_track_id", trackId)
     .order("blended_score", { ascending: false });
@@ -322,7 +325,8 @@ export async function getMatchesForTrack(user: SessionUser, trackId: string): Pr
       preview: audioRef(
         r.talent_track?.storage_path ? r.talent_track_id : null,
         r.talent_track?.peaks,
-        r.talent_track_id ?? talent.id
+        r.talent_track_id ?? talent.id,
+        one<any>(r.talent_track?.fingerprints)?.marble
       ),
       talent: talentView(revealed, talent, r.id),
       request: summarise(requests.get(r.id), user.id, threads.get(r.id) ?? null),
@@ -353,10 +357,18 @@ async function feedRows(user: SessionUser) {
   const { data } = await serviceClient()
     .from("matches")
     .select(
-      `${MATCH_COLS}, demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, created_at, status, peaks, storage_path, owner:profiles!tracks_owner_id_fkey(id, display_name, genres))`
+      `${MATCH_COLS}, demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, created_at, status, peaks, storage_path, fingerprints(marble), owner:profiles!tracks_owner_id_fkey(id, display_name, genres))`
     )
     .eq("talent_profile_id", user.id)
-    .order("blended_score", { ascending: false });
+    .order("blended_score", { ascending: false })
+    /*
+      Bounded deliberately. A well-matched artist accumulates matches
+      without limit, and an unbounded select would grow the page, the
+      payload and the number of players and marbles rendered with it.
+      Ordered by score first, so this is the top of the pile, not a
+      random slice.
+    */
+    .limit(FEED_MAX);
   const rows = (data ?? []).filter((r: any) => one<any>(r.demo)?.status === "fingerprinted");
 
   const ids = rows.map((r: any) => r.id);
@@ -393,7 +405,8 @@ function toFeedItem(user: SessionUser, r: any, revealed: boolean): FeedItemView 
           audio: audioRef(
             demo?.storage_path ? demo.id : null,
             demo?.peaks,
-            demo?.id ?? r.id
+            demo?.id ?? r.id,
+            one<any>(demo?.fingerprints)?.marble
           ),
         }
       : {
@@ -594,7 +607,7 @@ export async function getRequests(user: SessionUser): Promise<RequestView[]> {
        sender:profiles!requests_sender_id_fkey(${PROFILE_COLS}),
        recipient:profiles!requests_recipient_id_fkey(${PROFILE_COLS}),
        match:matches!requests_match_id_fkey(vocal_score, style_score, production_score, blended_score,
-         demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, peaks, storage_path))`
+         demo:tracks!matches_demo_track_id_fkey(id, title, duration_sec, peaks, storage_path, fingerprints(marble)))`
     )
     .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
     .order("created_at", { ascending: false });
@@ -631,7 +644,12 @@ export async function getRequests(user: SessionUser): Promise<RequestView[]> {
         track: {
           title: demo.title,
           durationSec: demo.duration_sec ?? 0,
-          audio: audioRef(demo.storage_path ? demo.id : null, demo.peaks, demo.id),
+          audio: audioRef(
+            demo.storage_path ? demo.id : null,
+            demo.peaks,
+            demo.id,
+            one<any>(demo.fingerprints)?.marble
+          ),
         },
       };
     })
@@ -839,7 +857,12 @@ async function buildProfileView(profileId: string): Promise<ProfileView | null> 
     craft: profile.craft,
     avatarSeed: profile.avatarSeed,
     preview: first
-      ? audioRef(first.storage_path ? first.id : null, first.peaks, first.id)
+      ? audioRef(
+          first.storage_path ? first.id : null,
+          first.peaks,
+          first.id,
+          one<any>(first.fingerprints)?.marble
+        )
       : null,
     referenceCount: (refs ?? []).length,
   };
